@@ -1,0 +1,257 @@
+# Data-centre registry. Every entry needs a source link; the tests refuse one without.
+#
+# capacity_mw is ANNOUNCED capacity as the source reports it: a maximum, not what the site uses.
+# Sources don't always say whether it's IT load or the grid connection; treat it as an upper bound.
+# status: operating | construction | approved | proposed
+# place: suburb when the source names one; otherwise "metro" (shown at the city, marked approximate).
+#
+# Compiled 2026-10-17 from RenewMap's public project pages, which aggregate operator announcements
+# and planning documents. Corrections welcome: open an issue with a better source.
+
+[[source]]
+id = "renewmap-nsw"
+title = "RenewMap: NSW data centre projects"
+url = "https://renewmap.com.au/resources/projects/nsw/datacentre/"
+accessed = "2026-10-17"
+
+[[source]]
+id = "renewmap-vic"
+title = "RenewMap: Victorian data centre projects"
+url = "https://renewmap.com.au/resources/projects/vic/datacentre/"
+accessed = "2026-10-17"
+
+[[source]]
+id = "airtrunk-mel2"
+title = "AirTrunk: MEL2 Melbourne"
+url = "https://airtrunk.com/location/mel2-melbourne/"
+accessed = "2026-10-17"
+
+# ---------- New South Wales ----------
+[[facility]]
+name = "AirTrunk SYD1"
+operator = "AirTrunk"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "operating"
+capacity_mw = 130
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "AirTrunk SYD2"
+operator = "AirTrunk"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "operating"
+capacity_mw = 158
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "NEXTDC S3"
+operator = "NEXTDC"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "operating"
+capacity_mw = 80
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "CDC Eastern Creek 4"
+operator = "CDC Data Centres"
+region = "NSW1"
+place = "Eastern Creek"
+lat = -33.80
+lon = 150.85
+status = "operating"
+capacity_mw = 78
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "Equinix SY5"
+operator = "Equinix"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "operating"
+capacity_mw = 54
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "CDC Marsden Park"
+operator = "CDC Data Centres"
+region = "NSW1"
+place = "Marsden Park"
+lat = -33.70
+lon = 150.83
+status = "construction"
+capacity_mw = 504
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "AirTrunk SYD3"
+operator = "AirTrunk"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "construction"
+capacity_mw = 400
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "NEXTDC S4"
+operator = "NEXTDC"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "construction"
+capacity_mw = 232
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "Microsoft Azure (Kemps Creek)"
+operator = "Microsoft"
+region = "NSW1"
+place = "Kemps Creek"
+lat = -33.87
+lon = 150.79
+status = "construction"
+capacity_mw = 190
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "Davis Road Data Centre"
+operator = "not stated"
+region = "NSW1"
+place = "metro"
+city = "Sydney"
+status = "construction"
+capacity_mw = 160
+sources = ["renewmap-nsw"]
+
+[[facility]]
+name = "CDC Wagga Wagga Campus"
+operator = "CDC Data Centres"
+region = "NSW1"
+place = "Wagga Wagga"
+lat = -35.12
+lon = 147.37
+status = "proposed"
+capacity_mw = 1400
+sources = ["renewmap-nsw"]
+
+# ---------- Victoria ----------
+[[facility]]
+name = "AirTrunk MEL1"
+operator = "AirTrunk"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "operating"
+capacity_mw = 185
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "CDC Brooklyn Campus One"
+operator = "CDC Data Centres"
+region = "VIC1"
+place = "Brooklyn"
+lat = -37.82
+lon = 144.85
+status = "operating"
+capacity_mw = 155
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "CDC Brooklyn Campus Two"
+operator = "CDC Data Centres"
+region = "VIC1"
+place = "Brooklyn"
+lat = -37.82
+lon = 144.85
+status = "operating"
+capacity_mw = 200
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "NEXTDC M2"
+operator = "NEXTDC"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "operating"
+capacity_mw = 120
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "Stack MEL01A"
+operator = "Stack Infrastructure"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "operating"
+capacity_mw = 36
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "AirTrunk MEL2"
+operator = "AirTrunk"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "construction"
+capacity_mw = 354
+sources = ["renewmap-vic", "airtrunk-mel2"]
+
+[[facility]]
+name = "CDC Laverton Campus One"
+operator = "CDC Data Centres"
+region = "VIC1"
+place = "Laverton"
+lat = -37.86
+lon = 144.77
+status = "construction"
+capacity_mw = 150
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "CDC Laverton Campus Two"
+operator = "CDC Data Centres"
+region = "VIC1"
+place = "Laverton"
+lat = -37.86
+lon = 144.77
+status = "construction"
+capacity_mw = 300
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "MEL02"
+operator = "not stated"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "construction"
+capacity_mw = 252
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "NEXTDC M3 (expansion)"
+operator = "NEXTDC"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "construction"
+capacity_mw = 133
+sources = ["renewmap-vic"]
+
+[[facility]]
+name = "Victorian AI Hub"
+operator = "not stated"
+region = "VIC1"
+place = "metro"
+city = "Melbourne"
+status = "proposed"
+capacity_mw = 2400
+sources = ["renewmap-vic"]

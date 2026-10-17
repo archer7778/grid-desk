@@ -1,0 +1,21 @@
+[Unit]
+Description=Grid Desk: fetch the latest NEM data from AEMO
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@ROOT@
+Environment=GRIDDESK_CONFIG=@ROOT@/config.toml
+ExecStart=/usr/bin/python3 -m griddesk.fetch
+Nice=10
+TimeoutStartSec=15min
+
+# Sandboxing: no privilege gain, a private /tmp, and the operating system read-only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

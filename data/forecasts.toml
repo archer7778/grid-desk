@@ -1,0 +1,43 @@
+# PUBLISHED figures about data-centre electricity use. Each needs a source.
+# Values are copied from the source, not modelled. Add the ESOO's regional series here once
+# extracted from AEMO's workbook (docs/data-spike.md has the steps).
+
+[[source]]
+id = "itnews-esoo-2026"
+title = "iTnews: AEMO predicts seven-fold rise in data centre power use over next decade (2026 ESOO)"
+url = "https://www.itnews.com.au/news/aemo-predicts-seven-fold-rise-in-data-centre-power-use-over-next-decade-628396"
+accessed = "2026-10-17"
+
+[[source]]
+id = "wmedia-esoo"
+title = "W.Media: AEMO, Australia's data centres to use 34TWh by 2035-36"
+url = "https://w.media/aemo-australias-data-centres-to-use-34twh-by-2035-36/"
+accessed = "2026-10-17"
+
+[[figure]]
+id = "dc-now"
+label = "Data-centre electricity use in the NEM now"
+value = 5
+unit = "TWh/year"
+basis = "2026 ESOO, AEMO"
+sources = ["itnews-esoo-2026"]
+
+[[figure]]
+id = "dc-decade"
+label = "Forecast data-centre use in about ten years (2035-36)"
+value = 34
+unit = "TWh/year"
+basis = "2026 ESOO central scenario, AEMO"
+sources = ["itnews-esoo-2026", "wmedia-esoo"]
+
+[[figure]]
+id = "dc-decade-prev"
+label = "The previous year's forecast for 2034-35"
+value = 21.4
+unit = "TWh/year"
+basis = "2025 ESOO, AEMO"
+sources = ["itnews-esoo-2026"]
+
+[[note]]
+text = "AEMO expects most of the growth in New South Wales and Victoria."
+sources = ["itnews-esoo-2026"]

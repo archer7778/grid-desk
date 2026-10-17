@@ -1,0 +1,23 @@
+[Unit]
+Description=Grid Desk console web server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@ROOT@
+Environment=GRIDDESK_CONFIG=@ROOT@/config.toml
+ExecStart=/usr/bin/python3 -m griddesk.server
+Restart=on-failure
+RestartSec=10
+
+# Sandboxing: no privilege gain, a private /tmp, and the operating system read-only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

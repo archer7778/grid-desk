@@ -1,0 +1,10 @@
+# Configuration for the public live demo, built by GitHub Actions (.github/workflows/demo.yml).
+[storage]
+db = "demo/griddesk.db"
+
+[sources]
+history_days = 28        # one archived day per run until four weeks are stored
+max_files_per_run = 72   # runs are ~30 min apart but GitHub can be late: catch up up to 6 hours
+
+[notify]
+summary_hour = -1        # no phone summary from the demo

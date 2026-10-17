@@ -1,0 +1,27 @@
+# Copy to config.toml and edit. Every setting is optional: these are the defaults.
+
+[sources]
+nemweb = "https://nemweb.com.au"                     # AEMO's public file server
+weather = "https://api.open-meteo.com/v1/forecast"   # hourly temperatures (free, no key)
+min_gap_s = 2.0            # seconds between requests to the same server
+max_files_per_run = 24     # 5-minute files per run (catch-up after downtime)
+history_days = 28          # how far back to fill in, one day per run, from AEMO's daily archive
+
+[storage]
+db = "data/griddesk.db"
+unit_detail_hours = 48     # keep per-unit output this long (for spotting trips); totals by fuel are kept
+
+[alerts]
+price_spike = 1000.0       # $/MWh
+departure_sigma = 3.0      # flag demand this many "normal scatters" from its learned normal
+trip_mw = 200.0            # a unit falling at least this far in one interval
+
+[notify]
+ntfy_topic = ""            # phone alerts through the free ntfy app; pick a topic only you know
+ntfy_server = "https://ntfy.sh"
+summary_hour = 7           # daily summary at this hour (local time below); -1 to turn off
+timezone = "Australia/Sydney"
+
+[server]
+host = "0.0.0.0"
+port = 8090

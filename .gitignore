@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+config.toml
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/fetch.lock
+data/duids.csv
+demo/
+site/
+spike/
+*.log

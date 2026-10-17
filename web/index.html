@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grid Desk</title>
+<meta name="description" content="A live operations console for Australia's National Electricity Market, with an honest look at data-centre demand.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f2ee;--panel:#fcfcfb;--sunk:#efeee9;--line:#dddbd3;--ink:#0b0b0b;--ink2:#52514e;--muted:#77756f;
+  --accent:#2a78d6;--accent-bg:#e3eefb;
+  --good:#0ca30c;--warn:#b07400;--serious:#d0612f;--crit:#d03b3b;
+  --good-bg:#e4f4e4;--warn-bg:#fbf0d8;--crit-bg:#fbe3e0;
+  --f-coal:#6250d6;--f-gas:#eb6834;--f-hydro:#2a78d6;--f-wind:#1baf7a;--f-solar:#eda100;--f-roof:#e87ba4;--f-battery:#008300;--f-other:#a3a19a;
+  --s-actual:#0b0b0b;--s-expected:#2a78d6;--s-typical:#a3a19a;--band:#2a78d6;
+  --st-operating:#2a78d6;--st-construction:#eb6834;--st-planned:#1baf7a;
+  --f-display:"IBM Plex Sans Condensed",system-ui,sans-serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#121211;--panel:#1a1a19;--sunk:#222220;--line:#33332f;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8f8d85;
+  --accent:#3987e5;--accent-bg:#1c2a3d;
+  --good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#e66767;
+  --good-bg:#14301a;--warn-bg:#33270f;--crit-bg:#3a1714;
+  --f-coal:#9085e9;--f-gas:#d95926;--f-hydro:#3987e5;--f-wind:#199e70;--f-solar:#c98500;--f-roof:#d55181;--f-battery:#008300;--f-other:#6c6b65;
+  --s-actual:#f0efec;--s-expected:#3987e5;--s-typical:#77756f;--band:#3987e5;
+  --st-operating:#3987e5;--st-construction:#d95926;--st-planned:#199e70;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211;--panel:#1a1a19;--sunk:#222220;--line:#33332f;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8f8d85;
+  --accent:#3987e5;--accent-bg:#1c2a3d;
+  --good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#e66767;
+  --good-bg:#14301a;--warn-bg:#33270f;--crit-bg:#3a1714;
+  --f-coal:#9085e9;--f-gas:#d95926;--f-hydro:#3987e5;--f-wind:#199e70;--f-solar:#c98500;--f-roof:#d55181;--f-battery:#008300;--f-other:#6c6b65;
+  --s-actual:#f0efec;--s-expected:#3987e5;--s-typical:#77756f;--band:#3987e5;
+  --st-operating:#3987e5;--st-construction:#d95926;--st-planned:#199e70;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body)}
+a{color:var(--accent)}
+.wrap{max-width:1440px;margin:0 auto;padding:0 16px 40px}
+header{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:flex-end;justify-content:space-between;padding:16px 0 8px}
+.brand .label{display:block}
+h1{font:600 26px/1.1 var(--f-display);letter-spacing:.02em;margin:2px 0}
+.label{font:600 11px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.sub{color:var(--ink2);font-size:13px}
+.clock{display:flex;gap:18px;align-items:flex-end}
+.clock .v{font:500 18px var(--f-mono)}
+.livebar{margin:0 -16px;padding:6px 16px;background:var(--good-bg);border-bottom:1px solid var(--good);font:600 12px var(--f-display);letter-spacing:.06em;text-transform:uppercase;display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between}
+.livebar.down{background:var(--crit-bg);border-color:var(--crit)}
+.livebar .note{text-transform:none;letter-spacing:0;font:400 12px var(--f-body);color:var(--ink2)}
+nav{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:6px 0 14px;overflow-x:auto}
+nav button{border:0;background:none;padding:9px 14px;cursor:pointer;font:600 13px var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.chip .v{font:600 20px var(--f-display);margin:2px 0}
+.chip .s{color:var(--muted);font-size:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.ok .dot{background:var(--good)} .warn .dot{background:var(--warn)} .crit .dot{background:var(--crit)}
+.regions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:12px}
+.rcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.rcard[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.rcard .top{display:flex;justify-content:space-between;align-items:baseline}
+.rcard .name{font:600 15px var(--f-display);letter-spacing:.04em}
+.rcard .big{font:500 24px var(--f-mono)}
+.rcard .unit{color:var(--muted);font-size:12px;margin-left:3px}
+.rcard dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin:6px 0 0;font-size:12.5px}
+.rcard dt{color:var(--muted)} .rcard dd{margin:0;font-family:var(--f-mono);text-align:right}
+.mixbar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:8px;gap:1px;background:var(--sunk)}
+.mixbar i{display:block;height:100%}
+.pill{display:inline-block;font:600 10.5px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:3px;background:var(--sunk);color:var(--ink2);white-space:nowrap}
+.pill.ok{background:var(--good-bg);color:var(--good)} .pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.crit{background:var(--crit-bg);color:var(--crit)}
+.pill.k-published{background:var(--accent-bg);color:var(--accent)} .pill.k-announced{background:var(--warn-bg);color:var(--warn)} .pill.k-estimated{background:var(--sunk);color:var(--ink2);outline:1px dashed var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}
+@media (max-width:980px){.grid2{grid-template-columns:1fr}}
+@media (max-width:520px){.chip .v{font-size:17px}.chip .s{font-size:11.5px}.strip{gap:8px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;margin-bottom:12px;overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h2{font:600 13px var(--f-display);letter-spacing:.08em;text-transform:uppercase;margin:0}
+.pb{padding:10px 14px}
+.note{color:var(--ink2);font-size:13px}
+.muted{color:var(--muted)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:12px var(--f-body);box-shadow:0 2px 10px rgba(0,0,0,.15);white-space:nowrap;z-index:2}
+.tip b{font-family:var(--f-mono);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2);padding:6px 14px 10px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.legend i.line{height:2px;vertical-align:3px}
+.legend i.dash{height:0;border-top:2px dashed;background:none!important;vertical-align:3px}
+.alerts{display:flex;flex-direction:column}
+.alert{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.alert:last-child{border-bottom:0}
+.alert .t{grid-column:2;color:var(--muted);font-size:12px}
+.empty{padding:14px;color:var(--muted);font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;font:600 11px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-family:var(--f-mono)}
+.tw{overflow-x:auto}
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:10px 14px}
+.fig{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--panel)}
+.fig .v{font:600 22px var(--f-display);margin:4px 0}
+.banner{border:1px solid var(--accent);background:var(--accent-bg);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13.5px}
+.meter{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden;margin:6px 0}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.map svg{display:block;width:100%;height:auto;background:var(--sunk)}
+.btn{font:500 12.5px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;padding:4px 9px;cursor:pointer}
+.hidden{display:none!important}
+.mono{font-family:var(--f-mono)}
+pre.summary{white-space:pre-wrap;font:13px/1.55 var(--f-body);margin:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="livebar" id="livebar"><span id="liveText">Connecting…</span><span class="note">Public AEMO data · not affiliated with AEMO · not trading advice</span></div>
+  <header>
+    <div class="brand"><span class="label">Grid Desk</span><h1>National Electricity Market</h1>
+      <div class="sub">Queensland, New South Wales, Victoria, South Australia and Tasmania · live every 5 minutes</div></div>
+    <div class="clock"><div><span class="label">Market time (AEST)</span><div class="v" id="clk">--:--</div></div>
+      <div><span class="label">Data as of</span><div class="v" id="asof">—</div></div></div>
+  </header>
+  <nav role="tablist">
+    <button role="tab" data-tab="grid" aria-selected="true">Grid</button>
+    <button role="tab" data-tab="dc" aria-selected="false">Data centres</button>
+    <button role="tab" data-tab="about" aria-selected="false">About</button>
+  </nav>
+
+  <section id="tab-grid">
+    <div class="strip" id="strip"></div>
+    <div class="regions" id="regions"></div>
+    <div class="grid2">
+      <div>
+        <div class="panel"><div class="ph"><h2 id="dTitle">Demand</h2><span class="sub" id="dSub"></span></div>
+          <div class="pb note" id="dReason"></div>
+          <div class="chart" id="cDemand"></div>
+          <div class="legend"><span><i class="line" style="background:var(--s-actual)"></i>Actual demand</span><span><i class="line" style="background:var(--s-expected)"></i>Expected (learned normal, given today's weather and sun)</span><span><i style="background:var(--band);opacity:.18"></i>90% of normal days</span><span><i class="dash" style="border-color:var(--s-typical)"></i>Typical day</span></div>
+        </div>
+        <div class="panel"><div class="ph"><h2>Generation mix</h2><span class="sub">Last 48 hours, MW · <button class="btn" id="mixTableBtn">Show as table</button></span></div>
+          <div class="chart" id="cMix"></div><div class="legend" id="mixLegend"></div><div class="tw hidden" id="mixTable"></div>
+          <p class="pb note" id="mixNote"></p>
+        </div>
+        <div class="panel"><div class="ph"><h2>Price</h2><span class="sub">Regional reference price, $/MWh</span></div><div class="chart" id="cPrice"></div></div>
+      </div>
+      <div>
+        <div class="panel"><div class="ph"><h2>Alerts</h2><span class="sub" id="alertSub"></span></div><div class="alerts" id="alerts"></div></div>
+        <div class="panel"><div class="ph"><h2>Reserve</h2><span class="sub">AEMO Lack of Reserve notices</span></div><div id="reserve"></div>
+          <p class="pb note">LOR1: reserve getting low. LOR2: reserve low, so losing one large unit could mean load shedding. LOR3: load shedding possible or under way.</p></div>
+        <div class="panel"><div class="ph"><h2>Interconnectors</h2><span class="sub" id="icSub"></span></div><div class="tw" id="ics"></div></div>
+        <div class="panel"><div class="ph"><h2>Last 24 hours</h2></div><div id="events"></div></div>
+        <div class="panel"><div class="ph"><h2>Daily summary</h2><span class="sub">Pushed to your phone at 7 am if set up</span></div><div class="pb"><pre class="summary" id="summary">Loading…</pre></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-dc" class="hidden">
+    <div class="banner" id="dcNote"></div>
+    <div class="panel"><div class="ph"><h2>What each number is</h2></div><div class="cards3" id="kinds"></div></div>
+    <div class="panel"><div class="ph"><h2>Published forecasts</h2><span class="sub">AEMO, NEM-wide</span></div><div class="cards3" id="figs"></div><div class="pb note" id="figNotes"></div></div>
+    <div class="grid2">
+      <div class="panel map"><div class="ph"><h2>Where they are</h2><span class="sub">Size: announced capacity. Dashed: position approximate (city only)</span></div><div id="map"></div>
+        <div class="legend"><span><i style="background:var(--st-operating)"></i>Operating</span><span><i style="background:var(--st-construction)"></i>Under construction</span><span><i style="background:none;outline:2px solid var(--st-planned);outline-offset:-2px"></i>Approved or proposed (ring)</span></div></div>
+      <div class="panel"><div class="ph"><h2>Pressure by region</h2><span class="pill k-announced">Announced</span></div><div id="pressure"></div></div>
+    </div>
+    <div class="panel"><div class="ph"><h2>Growth estimate: the flat baseline</h2><span class="pill k-estimated">Estimated</span></div><div id="baseline"></div></div>
+    <div class="panel"><div class="ph"><h2>Registry</h2><span class="sub" id="regSub"></span></div><div class="tw" id="registry"></div></div>
+  </section>
+
+  <section id="tab-about" class="hidden">
+    <div class="panel"><div class="ph"><h2>What this is</h2></div><div class="pb note">
+      <p>Grid Desk watches Australia's National Electricity Market (NEM) the way an operations desk would: demand, prices, generation and interconnector flows every 5 minutes, AEMO's reserve notices, and units dropping out. For each region it learns what demand normally looks like for the time of day, day of the week, temperature and rooftop sunshine, and says when today departs from that, and why.</p>
+      <p>The data-centre tab shows how much electricity data centres use and plan to use, as honestly as public data allows. It keeps three kinds of number apart: <b>published</b> (from AEMO's reports), <b>announced</b> (operators' stated capacity, a maximum) and <b>estimated</b> (our own inference, always with a range). It never claims to measure one facility's live use and never blames a facility for a grid event.</p>
+      <p>It is an independent project, not affiliated with AEMO or any operator, and nothing here is trading or investment advice.</p></div></div>
+    <div class="panel"><div class="ph"><h2>Sources and licences</h2></div><div class="pb note"><ul>
+      <li><a href="https://nemweb.com.au" rel="noopener">AEMO NEMweb</a>: dispatch, prices, unit output, rooftop solar, interconnectors and market notices. Public data from the Australian Energy Market Operator.</li>
+      <li><a href="https://open-meteo.com" rel="noopener">Open-Meteo</a>: hourly temperature for each capital, CC BY 4.0.</li>
+      <li>Data-centre registry: compiled from <a href="https://renewmap.com.au/resources/projects/nsw/datacentre/" rel="noopener">RenewMap</a> and operator pages; every entry links its source.</li>
+      <li>Forecasts: AEMO's 2026 Electricity Statement of Opportunities, as reported by <a href="https://www.itnews.com.au/news/aemo-predicts-seven-fold-rise-in-data-centre-power-use-over-next-decade-628396" rel="noopener">iTnews</a>.</li>
+      <li>Coastline: Natural Earth (public domain).</li></ul>
+      <p id="ver" class="muted"></p></div></div>
+  </section>
+</div>
+<script>
+(()=>{
+'use strict';
+const ST=window.GD_STATIC||null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl=u=>/^https:\/\//i.test(String(u||''))?String(u):'#';
+const NEM_OFF=10*3600e3,HOUR=3600e3,MIN=60e3;
+const fmtT=t=>t?new Date(t+NEM_OFF).toISOString().slice(11,16):'—';
+const fmtDT=t=>t?new Date(t+NEM_OFF).toISOString().slice(5,16).replace('T',' '):'—';
+const n0=v=>v==null?'—':Math.round(v).toLocaleString('en-AU');
+const sgn=(v,d=0)=>v==null?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(d);
+const money=v=>v==null?'—':(v<0?'−$':'$')+Math.abs(v).toLocaleString('en-AU',{maximumFractionDigits:0});
+const ago=ms=>ms<90e3?Math.round(ms/1e3)+' s':ms<90*MIN?Math.round(ms/MIN)+' min':(ms/HOUR).toFixed(1)+' h';
+const FUELS=[['coal','Coal','--f-coal'],['gas','Gas','--f-gas'],['hydro','Hydro','--f-hydro'],['wind','Wind','--f-wind'],['solar','Solar farms','--f-solar'],['rooftop solar','Rooftop solar','--f-roof'],['battery','Batteries','--f-battery'],['other','Other / unclassified','--f-other']];
+let CONF=null,STATE=null,SEL=localStorage_get('gd.region','NSW1'),SERIES={},TAB='grid',DC=null;
+
+function localStorage_get(k,d){try{return localStorage.getItem(k)||d}catch(e){return d}}
+function localStorage_set(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+async function api(path){
+  if(ST){
+    const [b,qs]=path.split('?'),q=new URLSearchParams(qs||''),n=b.replace(/^\/api\//,'');
+    const file=n==='series'?'series-'+(q.get('region')||'NSW1'):n;
+    const r=await fetch(ST.base+file+'.json',{cache:'no-cache'});if(!r.ok)throw new Error('Not in this snapshot');return r.json();
+  }
+  const r=await fetch(path);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;
+}
+
+/* ---------- charts: one y-axis each, crosshair + tooltip ---------- */
+function lineChart(el,opt){
+  const W=Math.max(340,Math.min(900,el.clientWidth||760)),H=opt.h||(W<500?200:240),L=52,R=12,T=10,B=24;
+  const xs=opt.series.flatMap(s=>s.pts.map(p=>p[0]));if(!xs.length){el.innerHTML='<div class="empty">'+esc(opt.empty||'No data yet.')+'</div>';return}
+  const x0=Math.min(...xs),x1=Math.max(...xs);
+  let ys=opt.series.flatMap(s=>s.pts.map(p=>p[1]).filter(v=>v!=null));
+  if(opt.band)ys=ys.concat(opt.band.flatMap(p=>[p[1],p[2]]).filter(v=>v!=null));
+  let y0=Math.min(...ys),y1=Math.max(...ys);if(opt.minSpan&&y1-y0<opt.minSpan){const m=(y0+y1)/2;y0=m-opt.minSpan/2;y1=m+opt.minSpan/2}if(opt.zero)y0=Math.min(0,y0);if(y1===y0){y1+=1;y0-=1}
+  const pad=(y1-y0)*.06;y0-=opt.zero&&y0>=0?0:pad;y1+=pad;
+  const X=t=>L+(t-x0)/(x1-x0||1)*(W-L-R),Y=v=>T+(y1-v)/(y1-y0)*(H-T-B);
+  let g='';
+  const ticks=nice(y0,y1,4);
+  for(const v of ticks)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${esc(opt.fy?opt.fy(v):n0(v))}</text>`;
+  const hstep=(x1-x0)>36*HOUR?12*HOUR:6*HOUR;
+  if(opt.xticks)for(const [t,lab] of opt.xticks)g+=`<text x="${X(t).toFixed(1)}" y="${H-6}" text-anchor="${t===x1?'end':t===x0?'start':'middle'}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${esc(lab)}</text>`;
+  else for(let t=Math.ceil((x0+NEM_OFF)/hstep)*hstep-NEM_OFF;t<=x1;t+=hstep)g+=`<text x="${X(t).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${new Date(t+NEM_OFF).toISOString().slice(11,13)==='00'?fmtDT(t).slice(0,5):fmtT(t)}</text>`;
+  if(opt.band){const top=opt.band.filter(p=>p[1]!=null),bot=[...top].reverse();if(top.length)g+=`<path d="M${top.map(p=>X(p[0]).toFixed(1)+','+Y(p[2]).toFixed(1)).join('L')}L${bot.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join('L')}Z" fill="var(--band)" opacity=".16"/>`}
+  if(opt.marks)for(const m of opt.marks)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(m.v).toFixed(1)}" y2="${Y(m.v).toFixed(1)}" stroke="${m.c}" stroke-dasharray="3 3" stroke-width="1"/><text x="${W-R}" y="${(Y(m.v)-4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)">${esc(m.label)}</text>`;
+  for(const s of opt.series){let d='',pen=false,last=null;const gap=opt.gap||20*MIN;for(const p of s.pts){if(p[1]==null||(last&&p[0]-last>gap)){pen=false}if(p[1]!=null){d+=(pen?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1);pen=true}last=p[0]}
+    g+=`<path d="${d}" fill="none" stroke="${s.c}" stroke-width="${s.w||2}" ${s.dash?'stroke-dasharray="5 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(s.dots)for(const p of s.pts)if(p[1]!=null)g+=`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="4" fill="${s.c}" stroke="var(--panel)" stroke-width="2"/>`}
+  g+=`<line id="xh" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||'chart')}">${g}<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" class="hit"/></svg><div class="tip hidden"></div>`;
+  const svg=el.querySelector('svg'),tip=el.querySelector('.tip'),xh=el.querySelector('#xh'),allT=[...new Set(xs)].sort((a,b)=>a-b);
+  const move=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W;const t=x0+(px-L)/(W-L-R)*(x1-x0);let i=allT.findIndex(v=>v>=t);if(i<0)i=allT.length-1;const tt=allT[i];
+    xh.setAttribute('x1',X(tt));xh.setAttribute('x2',X(tt));xh.setAttribute('visibility','visible');
+    const rows=opt.series.map(s=>{const p=s.pts.find(p=>p[0]===tt);return p&&p[1]!=null?`<div>${esc(s.name)}: <b>${esc(opt.fy?opt.fy(p[1]):n0(p[1]))}</b>${esc(opt.unit||'')}</div>`:''}).join('');
+    tip.innerHTML=`<div class="muted">${esc(opt.xlab?opt.xlab(tt):fmtDT(tt)+' AEST')}</div>${rows}`;tip.classList.remove('hidden');
+    const tx=(X(tt)/W)*r.width;tip.style.left=Math.min(Math.max(0,tx+12),r.width-tip.offsetWidth)+'px';tip.style.top='8px'};
+  svg.addEventListener('pointermove',move);svg.addEventListener('pointerleave',()=>{tip.classList.add('hidden');xh.setAttribute('visibility','hidden')});
+}
+function nice(a,b,n){const span=b-a,step0=span/n,mag=10**Math.floor(Math.log10(step0)),f=step0/mag,step=(f<1.5?1:f<3?2:f<7?5:10)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-9;v+=step)out.push(+v.toFixed(6));return out}
+
+function stackChart(el,mix,roof){
+  const W=Math.max(340,Math.min(900,el.clientWidth||760)),H=W<500?200:230,L=52,R=12,T=10,B=24;
+  const order=FUELS.map(f=>f[0]);const times=[...new Set(Object.values(mix).flatMap(s=>s.map(p=>p[0])))].sort((a,b)=>a-b);
+  if(!times.length){el.innerHTML='<div class="empty">No generation data yet. It needs the unit list (data/duids.csv) to split output by fuel.</div>';return}
+  const get={};for(const f in mix){get[f]=new Map(mix[f].map(p=>[p[0],p[1]]))}
+  const roofAt=t=>{if(!roof||!roof.length)return 0;let best=null;for(const p of roof){if(p[0]<=t)best=p;else break}return best&&t-best[0]<=HOUR?best[1]:0};
+  get['rooftop solar']=new Map(times.map(t=>[t,roofAt(t)]));
+  const val=(f,t)=>Math.max(0,(f==='other'?((get.other?.get(t)||0)+(get.unmapped?.get(t)||0)):(get[f]?.get(t)||0)));
+  const tot=times.map(t=>order.reduce((s,f)=>s+val(f,t),0));const y1=Math.max(...tot)*1.06||1;
+  const X=t=>L+(t-times[0])/(times[times.length-1]-times[0]||1)*(W-L-R),Y=v=>T+(y1-v)/y1*(H-T-B);
+  let g='';for(const v of nice(0,y1,4))g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)"/><text x="${L-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${n0(v)}</text>`;
+  const base=times.map(()=>0);
+  for(const [f,,cv] of FUELS){const top=times.map((t,i)=>base[i]+val(f,t));if(top.every((v,i)=>v===base[i]))continue;
+    const d='M'+times.map((t,i)=>X(t).toFixed(1)+','+Y(top[i]).toFixed(1)).join('L')+'L'+[...times].reverse().map((t,j)=>{const i=times.length-1-j;return X(t).toFixed(1)+','+Y(base[i]).toFixed(1)}).join('L')+'Z';
+    g+=`<path d="${d}" fill="var(${cv})" stroke="var(--panel)" stroke-width="1"/>`;times.forEach((t,i)=>base[i]=top[i])}
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Generation mix stacked by fuel">${g}</svg><div class="tip hidden"></div>`;
+  const svg=el.querySelector('svg'),tip=el.querySelector('.tip');
+  svg.addEventListener('pointermove',e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W;const t=times[0]+(px-L)/(W-L-R)*(times[times.length-1]-times[0]);let i=times.findIndex(v=>v>=t);if(i<0)i=times.length-1;const tt=times[i];
+    tip.innerHTML=`<div class="muted">${fmtDT(tt)} AEST</div>`+FUELS.map(([f,lab])=>{const v=val(f,tt);return v>0.5?`<div>${esc(lab)}: <b>${n0(v)}</b> MW</div>`:''}).join('');tip.classList.remove('hidden');
+    tip.style.left=Math.min(Math.max(0,(X(tt)/W)*r.width+12),r.width-tip.offsetWidth)+'px';tip.style.top='8px'});
+  svg.addEventListener('pointerleave',()=>tip.classList.add('hidden'));
+  // table view (relief for colours that are lighter than 3:1)
+  const last=times[times.length-1];
+  $('#mixTable').innerHTML=`<table><thead><tr><th>Fuel</th><th class="num">MW at ${fmtT(last)}</th><th class="num">Share</th></tr></thead><tbody>${FUELS.map(([f,lab])=>{const v=val(f,last),s=tot[tot.length-1];return `<tr><td>${esc(lab)}</td><td class="num">${n0(v)}</td><td class="num">${s?Math.round(100*v/s):0}%</td></tr>`}).join('')}</tbody></table>`;
+  $('#mixLegend').innerHTML=FUELS.map(([f,lab,cv])=>`<span><i style="background:var(${cv})"></i>${esc(lab)}</span>`).join('');
+}
+
+/* ---------- grid tab ---------- */
+function sevOf(r){const lor=STATE.reserve.filter(a=>a.region===r.region);if(lor.some(a=>a.level>=2&&a.basis==='actual'))return 'crit';if(lor.length)return 'warn';const z=r.normal&&r.normal.z;if(z!=null&&Math.abs(z)>=(CONF.departure_sigma||3))return 'warn';return 'ok'}
+function renderStrip(){
+  const R=Object.values(STATE.regions),tot=R.reduce((s,r)=>s+(r.demand||0),0),hi=R.filter(r=>r.price!=null).sort((a,b)=>b.price-a.price)[0];
+  const lor=STATE.reserve[0],al=STATE.alerts;
+  const roof=R.reduce((s,r)=>s+(r.rooftop||0),0);
+  const chips=[
+    {cls:'ok',l:'NEM demand',v:n0(tot)+' MW',s:`Operational demand, five regions · plus ${n0(roof)} MW from rooftop solar`},
+    {cls:hi&&hi.price>=STATE.price_spike?'warn':'ok',l:'Highest price',v:hi?money(hi.price)+'/MWh':'—',s:hi?hi.short+' · spike alert above '+money(STATE.price_spike):''},
+    {cls:lor?(lor.level>=2&&lor.basis==='actual'?'crit':'warn'):'ok',l:'Reserve',v:lor?`${lor.basis==='actual'?'Actual':'Forecast'} LOR${lor.level}`:'No LOR notices',s:lor?(lor.region||'').replace('1','')+' · AEMO notice '+lor.id:'Enough spare capacity, per AEMO'},
+    {cls:al.some(a=>a.sev==='crit')?'crit':al.length?'warn':'ok',l:'Alerts',v:al.length+' open',s:al.length?al[0].msg.slice(0,60)+'…':'Nothing needs attention'},
+    {cls:STATE.t&&STATE.now-STATE.t<20*MIN?'ok':'warn',l:'Latest interval',v:STATE.t?fmtT(STATE.t)+' AEST':'—',s:STATE.t?ago(Date.now()-STATE.t)+' ago':'Waiting for the first fetch'}];
+  $('#strip').innerHTML=chips.map(c=>`<div class="chip ${c.cls}"><span class="label"><span class="dot"></span>${esc(c.l)}</span><div class="v">${esc(c.v)}</div><div class="s">${esc(c.s)}</div></div>`).join('');
+}
+function renderRegions(){
+  $('#regions').innerHTML=Object.values(STATE.regions).map(r=>{const n=r.normal||{},sev=sevOf(r);
+    const mixTot=FUELS.reduce((s,[f])=>s+Math.max(0,f==='rooftop solar'?(r.rooftop||0):(r.mix[f]||0)+(f==='other'?(r.mix.unmapped||0):0)),0);
+    const bar=mixTot?FUELS.map(([f,lab,cv])=>{const v=Math.max(0,f==='rooftop solar'?(r.rooftop||0):(r.mix[f]||0)+(f==='other'?(r.mix.unmapped||0):0));return v>0?`<i style="width:${(100*v/mixTot).toFixed(1)}%;background:var(${cv})" title="${esc(lab)} ${n0(v)} MW"></i>`:''}).join(''):'';
+    const vs=n.status==='ok'&&n.vs_typical_pct!=null?`${sgn(n.vs_typical_pct)}% vs typical`:n.status==='learning'?'learning normal':'—';
+    return `<button class="rcard" aria-pressed="${r.region===SEL}" data-reg="${esc(r.region)}"><div class="top"><span class="name">${esc(r.short)}</span><span class="pill ${sev}">${sev==='ok'?'Normal':sev==='crit'?'Tight':'Watch'}</span></div>
+      <div><span class="big">${n0(r.demand)}</span><span class="unit">MW</span></div>
+      <dl><dt>vs normal</dt><dd>${esc(vs)}</dd><dt>Price</dt><dd>${money(r.price)}/MWh</dd><dt>${esc(r.city)}</dt><dd>${r.temp!=null?r.temp.toFixed(0)+' °C':'—'}</dd><dt>Rooftop solar</dt><dd>${n0(r.rooftop)} MW</dd></dl>
+      ${bar?`<div class="mixbar" aria-hidden="true">${bar}</div>`:''}</button>`}).join('');
+}
+function renderAlerts(){
+  const al=STATE.alerts;$('#alertSub').textContent=al.length?al.length+' open':'';
+  $('#alerts').innerHTML=al.length?al.map(a=>`<div class="alert"><span class="pill ${a.sev}">${a.sev==='crit'?'Alarm':'Caution'}</span><span>${esc(a.msg)}</span><span class="t">${fmtDT(a.t)} AEST</span></div>`).join(''):'<div class="empty">No open alerts. Reserve notices, price spikes, units dropping out and demand far from normal appear here.</div>';
+  const rs=STATE.reserve;$('#reserve').innerHTML=rs.length?rs.map(a=>`<div class="alert"><span class="pill ${a.level>=2&&a.basis==='actual'?'crit':'warn'}">LOR${a.level}</span><span>${esc(a.reference||((a.basis==='actual'?'Actual':'Forecast')+' LOR'+a.level+' in '+(a.region||'').replace('1','')))}</span><span class="t">AEMO notice ${esc(a.id)} · ${fmtDT(a.t_ms)} AEST</span></div>`).join(''):'<div class="empty">No current Lack of Reserve notices.</div>';
+  const ic=STATE.interconnectors;$('#icSub').textContent=STATE.interconnectors_t?'at '+fmtT(STATE.interconnectors_t)+' AEST':'';
+  $('#ics').innerHTML=ic.length?`<table><thead><tr><th>Link</th><th class="num">Flow MW</th><th class="num">Limits</th></tr></thead><tbody>${ic.map(i=>`<tr><td>${esc(i.ic)}</td><td class="num">${n0(i.flow)}</td><td class="num">${n0(i.import_limit)} … ${n0(i.export_limit)}</td></tr>`).join('')}</tbody></table><p class="pb note">Positive flow runs in the direction of the name (first region to second).</p>`:'<div class="empty">No data yet.</div>';
+}
+async function renderEvents(){
+  try{const ev=await api('/api/events?hours=24');const rows=[];
+    for(const n of ev.notices.slice(0,8))rows.push([n.t_ms,`AEMO notice ${n.id}${n.lor?' · LOR'+n.lor:''}: ${n.reference||n.type}`]);
+    for(const p of ev.price_spikes.slice(-6))rows.push([p.t_ms,`${p.region.replace('1','')} price ${money(p.price)}/MWh`]);
+    for(const t of ev.trips.slice(-6))rows.push([t.t,`${t.station} dropped ${n0(t.from_mw)} → ${n0(t.to_mw)} MW`]);
+    rows.sort((a,b)=>b[0]-a[0]);
+    $('#events').innerHTML=rows.length?rows.slice(0,14).map(r=>`<div class="alert"><span class="mono muted">${fmtT(r[0])}</span><span>${esc(r[1])}</span></div>`).join(''):'<div class="empty">Nothing notable in the last 24 hours.</div>';
+  }catch(e){$('#events').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}
+  try{const s=await api('/api/summary');$('#summary').textContent=s.title+'\n\n'+s.text}catch(e){$('#summary').textContent=e.message}
+}
+async function renderDetail(){
+  const r=STATE.regions[SEL];if(!r)return;
+  $('#dTitle').textContent=r.name+': demand';
+  const n=r.normal||{};
+  $('#dSub').textContent=n.status==='ok'?`Now ${n0(n.actual)} MW · expected ${n0(n.expected)} · typical ${n0(n.typical)} MW`:n.status==='learning'?`Learning: ${n0(n.need)} more 5-minute intervals with weather needed`:'';
+  $('#dReason').textContent=n.reason||(n.status==='learning'?'The model needs about five days of data with temperatures before it can say what normal is.':'');
+  let s;try{s=SERIES[SEL]=await api('/api/series?region='+SEL+'&hours=48')}catch(e){$('#cDemand').innerHTML='<div class="empty">'+esc(e.message)+'</div>';return}
+  const pts=s.points,bo=s.band_offsets;
+  lineChart($('#cDemand'),{label:'Demand, actual against expected',unit:' MW',series:[
+    {name:'Typical day',c:'var(--s-typical)',dash:true,pts:pts.map(p=>[p[0],p[3]])},
+    {name:'Expected',c:'var(--s-expected)',pts:pts.map(p=>[p[0],p[2]])},
+    {name:'Actual',c:'var(--s-actual)',w:2,pts:pts.map(p=>[p[0],p[1]])}],
+    band:bo?pts.filter(p=>p[2]!=null).map(p=>[p[0],p[2]+bo[0],p[2]+bo[1]]):null,empty:'No demand data yet.'});
+  lineChart($('#cPrice'),{label:'Price',h:170,unit:' $/MWh',fy:v=>money(v),series:[{name:'Price',c:'var(--accent)',pts:s.price}],
+    marks:[{v:STATE.price_spike,c:'var(--warn)',label:'spike alert'}].filter(m=>s.price.some(p=>p[1]>m.v*0.5))});
+  stackChart($('#cMix'),s.mix,s.rooftop);
+  $('#mixNote').textContent=(s.mix.unmapped?'Some units aren’t in the unit list yet and are counted as unclassified. ':'')+'Rooftop solar isn’t traded in the market; it shows up as lower operational demand, so it’s drawn from AEMO’s rooftop estimate.';
+}
+
+/* ---------- data centres tab ---------- */
+async function renderDC(){
+  if(!DC){try{DC=await api('/api/datacentres')}catch(e){$('#dcNote').textContent='Could not load: '+e.message;return}}
+  $('#dcNote').innerHTML=`<b>How to read this tab.</b> ${esc(DC.note)}`;
+  $('#kinds').innerHTML=Object.entries(DC.kinds).map(([k,v])=>`<div class="fig"><span class="pill k-${k}">${esc(k)}</span><p class="note" style="margin:8px 0 0">${esc(v)}</p></div>`).join('');
+  const P=DC.pressure.NEM;
+  $('#figs').innerHTML=DC.forecasts.figures.map(f=>{const avg=f.unit==='TWh/year'?Math.round(f.value*1e6/8766):null;return `<div class="fig"><span class="pill k-published">Published</span><div class="v">${esc(f.value)} ${esc(f.unit)}</div><div class="note">${esc(f.label)}${avg?` · about <b>${n0(avg)} MW</b> around the clock`:''}</div><div class="muted" style="font-size:12px;margin-top:6px">${esc(f.basis||'')} · ${f.sources.map(s=>`<a href="${esc(safeUrl(s.url))}" rel="noopener">${esc(s.title.split(':')[0])}</a>`).join(', ')}</div></div>`}).join('');
+  $('#figNotes').innerHTML=DC.forecasts.notes.map(n=>esc(n.text)).join(' ')+' Converting a year’s energy to average power: 1 TWh a year is about 114 MW running all the time.';
+  renderMap();renderPressure();renderBaseline();
+  const F=DC.facilities;$('#regSub').textContent=`${F.length} facilities · announced capacity ${n0(F.reduce((s,f)=>s+(f.capacity_mw||0),0))} MW`;
+  const stL={operating:'Operating',construction:'Under construction',approved:'Approved',proposed:'Proposed'};
+  $('#registry').innerHTML=`<table><thead><tr><th>Facility</th><th>Operator</th><th>Region</th><th>Place</th><th>Status</th><th class="num">Capacity MW</th><th>Source</th></tr></thead><tbody>${[...F].sort((a,b)=>(b.capacity_mw||0)-(a.capacity_mw||0)).map(f=>`<tr><td>${esc(f.name)}</td><td>${esc(f.operator)}</td><td>${esc(f.region.replace('1',''))}</td><td>${esc(f.place==='metro'?'Metro area (not stated)':f.place)}</td><td>${esc(stL[f.status])}</td><td class="num">${n0(f.capacity_mw)} <span class="pill k-announced">announced</span></td><td>${f.sources.map(s=>`<a href="${esc(safeUrl(s.url))}" rel="noopener">${esc(s.title.split(':')[0])}</a>`).join(', ')}</td></tr>`).join('')}</tbody></table>`;
+}
+function renderMap(){
+  // south-east Australia, equirectangular with cos(lat) correction
+  const lon0=140.5,lon1=153.8,lat0=-39.6,lat1=-31.6,W=640,H=Math.round(W*(lat1-lat0)/((lon1-lon0)*Math.cos(35*Math.PI/180)));
+  const X=lo=>(lo-lon0)/(lon1-lon0)*W,Y=la=>(lat1-la)/(lat1-lat0)*H;
+  let g='';
+  for(const line of (AU.coast||[]).concat(AU.border||[])){let d='';for(let i=0;i<line.length;i+=2){d+=(i?'L':'M')+X(line[i]/10).toFixed(1)+','+Y(line[i+1]/10).toFixed(1)}g+=`<path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1"/>`}
+  for(const r of Object.values(CONF.regions))g+=`<circle cx="${X(r.lon).toFixed(1)}" cy="${Y(r.lat).toFixed(1)}" r="2.5" fill="var(--ink2)"/><text x="${(X(r.lon)+6).toFixed(1)}" y="${(Y(r.lat)-6).toFixed(1)}" font-size="12" fill="var(--ink2)">${esc(r.city)}</text>`;
+  const F=[...DC.facilities].sort((a,b)=>(b.capacity_mw||0)-(a.capacity_mw||0));
+  const seen={};
+  for(const f of F){const key=f.lat+','+f.lon,k=seen[key]=(seen[key]||0)+1;
+    // facilities with only a city get spread on a small circle so they don't sit on top of each other
+    const ang=k*2.4,off=f.position_approximate?10+9*Math.sqrt(k):(k>1?7*Math.sqrt(k):0);
+    const cx=X(f.lon)+off*Math.cos(ang),cy=Y(f.lat)+off*Math.sin(ang),rad=3+Math.sqrt(f.capacity_mw||10)/2.2;
+    const col=f.status==='operating'?'var(--st-operating)':f.status==='construction'?'var(--st-construction)':'var(--st-planned)';
+    const ring=f.status==='approved'||f.status==='proposed';
+    g+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad.toFixed(1)}" fill="${ring?'none':col}" fill-opacity="${ring?0:.55}" stroke="${ring?col:'var(--panel)'}" stroke-width="${ring?2:1.5}" ${f.position_approximate?'stroke-dasharray="3 2"':''}><title>${esc(f.name)} · ${esc(f.status)} · ${n0(f.capacity_mw)} MW announced${f.position_approximate?' · position approximate':''}</title></circle>`;
+    if(!f.position_approximate&&Math.hypot(f.lat-CONF.regions[f.region].lat,f.lon-CONF.regions[f.region].lon)>1)g+=`<text x="${(cx+rad+4).toFixed(1)}" y="${(cy+4).toFixed(1)}" font-size="12" fill="var(--ink2)">${esc(f.place)}</text>`}
+  $('#map').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Map of data centres in south-east Australia">${g}</svg>`;
+}
+function renderPressure(){
+  const rows=['NSW1','VIC1','QLD1','SA1','TAS1'].map(r=>DC.pressure[r]).filter(p=>p&&p.facilities);
+  $('#pressure').innerHTML=rows.map(p=>{const op=p.mw_by_status.operating,pipe=p.mw_pipeline;
+    const a=p.operating_vs_avg_demand,b=p.pipeline_vs_peak_demand;
+    return `<div class="pb" style="border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> · ${p.facilities} facilities
+      <div class="note">Operating: <b>${n0(op)} MW</b> announced${p.avg_demand_mw?` · ${Math.round(100*a)}% of average demand (${n0(p.avg_demand_mw)} MW)`:''}</div>
+      <div class="meter" title="Announced operating capacity against average demand"><i style="width:${Math.min(100,100*(a||0)).toFixed(1)}%"></i></div>
+      <div class="note">In the pipeline: <b>${n0(pipe)} MW</b> under construction, approved or proposed${p.peak_demand_mw?` · ${Math.round(100*b)}% of the last four weeks' peak (${n0(p.peak_demand_mw)} MW)`:''}</div>
+      <div class="meter"><i style="width:${Math.min(100,100*(b||0)).toFixed(1)}%;background:var(--st-construction)"></i></div></div>`}).join('')+
+    `<p class="pb note">Announced capacity is the most a site could draw; real use is usually well below it, and much of the pipeline may never be built. AEMO's published figure for all NEM data centres today is about ${DC.pressure.NEM?n0(DC.pressure.NEM.avg_mw_now):'—'} MW on average.</p>`;
+}
+function renderBaseline(){
+  const el=$('#baseline');let h='';
+  for(const [reg,b] of Object.entries(DC.baseline)){const name=CONF.regions[reg].name;
+    if(b.status!=='ok'){h+=`<div class="pb"><b>${esc(name)}</b>: <span class="note">still learning. ${b.need_months?`It needs ${b.need_months} more month${b.need_months>1?'s':''} of data (${b.months.length} so far); a trend means little before a full year.`:''}</span></div>`;continue}
+    h+=`<div class="pb"><b>${esc(name)}</b>: flat baseline ${b.trend_mw_per_year>=0?'rising':'falling'} by <b>${n0(Math.abs(b.trend_mw_per_year))} MW a year</b> (90% range ${n0(b.trend_range_mw_per_year[0])} to ${n0(b.trend_range_mw_per_year[1])}) over ${b.months.length} months.${b.seasonal_warning?' <span class="muted">Under a year of data: season can still leak into this.</span>':''}</div><div class="chart" data-bl="${esc(reg)}"></div>`}
+  h+=`<p class="pb note"><b>Method.</b> ${esc(Object.values(DC.baseline)[0]?.method||'')}</p>`;
+  el.innerHTML=h;
+  for(const [reg,b] of Object.entries(DC.baseline)){if(b.status!=='ok')continue;
+    const pts=b.months.map((m,i)=>[Date.parse(m+'-15T00:00:00Z'),b.levels_mw[i]]);
+    const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],lab=t=>{const d=new Date(t);return MON[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(2)};
+    const every=Math.ceil(pts.length/7);
+    lineChart(el.querySelector(`[data-bl="${reg}"]`),{label:'Monthly flat baseline',h:190,minSpan:50,unit:' MW',gap:40*24*HOUR,xlab:lab,
+      xticks:pts.filter((p,i)=>i%every===0||i===pts.length-1).map(p=>[p[0],lab(p[0])]),
+      series:[{name:'Level against the first month',c:'var(--accent)',dots:true,pts}]})}
+}
+
+/* ---------- plumbing ---------- */
+let AU={};
+async function refresh(){
+  try{STATE=await api('/api/state')}catch(e){$('#livebar').classList.add('down');$('#liveText').textContent='Can’t reach the server: '+e.message;return}
+  $('#livebar').classList.toggle('down',!!(STATE.t&&Date.now()-STATE.t>30*MIN));
+  $('#liveText').textContent=ST?`Demo snapshot · real AEMO data · ${ago(Date.now()-ST.snapshot)} old, refreshed about hourly`:STATE.t?`Live · latest interval ${fmtT(STATE.t)} AEST`:'Waiting for the first fetch';
+  $('#asof').textContent=STATE.t?fmtT(STATE.t):'—';
+  if(!STATE.regions[SEL])SEL='NSW1';
+  renderStrip();renderRegions();renderAlerts();
+  if(TAB==='grid'){renderDetail();renderEvents()}
+}
+function tick(){$('#clk').textContent=new Date(Date.now()+NEM_OFF).toISOString().slice(11,19)}
+document.addEventListener('click',e=>{
+  const rc=e.target.closest('.rcard');if(rc){SEL=rc.dataset.reg;localStorage_set('gd.region',SEL);renderRegions();renderDetail();return}
+  const tb=e.target.closest('nav button');if(tb){TAB=tb.dataset.tab;document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b===tb));for(const t of ['grid','dc','about'])$('#tab-'+t).classList.toggle('hidden',t!==TAB);if(TAB==='dc')renderDC();if(TAB==='grid'){renderDetail();renderEvents()}return}
+  if(e.target.id==='mixTableBtn'){const t=$('#mixTable');t.classList.toggle('hidden');e.target.textContent=t.classList.contains('hidden')?'Show as table':'Hide table'}
+});
+async function boot(){
+  try{CONF=await api('/api/config')}catch(e){$('#liveText').textContent='Can’t reach the server';setTimeout(boot,5000);return}
+  $('#ver').textContent='Grid Desk '+CONF.version;
+  try{AU=await (await fetch((ST?'':'/')+'au.json')).json()}catch(e){AU={}}
+  tick();setInterval(tick,1000);await refresh();
+  if(ST){setInterval(refresh,10*MIN);return}
+  let es;try{es=new EventSource('/api/stream');es.addEventListener('data',()=>{DC=TAB==='dc'?DC:null;refresh()})}catch(e){}
+  setInterval(()=>{if(!es||es.readyState===2)refresh()},60e3);
+}
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(!STATE)return;if(TAB==='grid')renderDetail();if(TAB==='dc'&&DC)renderBaseline()},250)});
+boot();
+})();
+</script>
+</body>
+</html>
