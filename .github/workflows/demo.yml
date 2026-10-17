@@ -49,6 +49,27 @@ jobs:
         with:
           path: demo
           key: griddesk-demo-${{ github.run_id }}
+      - name: Health report (readable through the API as annotations)
+        run: |
+          python - <<'PY'
+          import json, time
+          from griddesk.config import find_config
+          from griddesk.server import App
+          app = App(find_config("demo-config.toml"))
+          st = app.state()
+          rep = {"t": st["t"], "alerts": [a["msg"] for a in st["alerts"]][:6], "reserve": [a["reference"] for a in st["reserve"]][:4],
+                 "regions": {r: {k: v.get(k) for k in ("demand", "price", "rooftop", "temp")} | {"mix": v["mix"],
+                            "normal": {k: (v["normal"] or {}).get(k) for k in ("status", "samples", "need", "expected", "typical", "z", "sigma", "reason")}}
+                            for r, v in st["regions"].items()},
+                 "fetches": st["fetches"][:3]}
+          with app.ro() as c:
+              rep["rows"] = {t: c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("regional", "mix", "units", "rooftop", "weather", "notices", "duids")}
+              rep["span_days"] = c.execute("SELECT (MAX(t_ms)-MIN(t_ms))/86400000.0 FROM regional").fetchone()[0]
+          text = json.dumps(rep, default=str)
+          parts = [text[i:i + 3500] for i in range(0, len(text), 3500)][:20]
+          for i, chunk in enumerate(parts):
+              print(f"::notice title=health {i + 1}/{len(parts)}::" + chunk.replace("%", "%25").replace("\n", "%0A"))
+          PY
       - name: Export snapshot
         run: python -m griddesk.export_static --config demo-config.toml --out site
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
