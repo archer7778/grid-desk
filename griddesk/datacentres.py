@@ -146,7 +146,8 @@ def baseline(conn, region, now, months=24, min_months=3, boot=200, seed=1):
                                                 (region, since - 3 * 3600_000))])
     roof = _S([(r[0], r[1]) for r in conn.execute("SELECT t_ms, mw FROM rooftop WHERE region=? AND t_ms>?",
                                                   (region, since - 3600_000))])
-    has_roof = len(roof) > 48
+    span_days = (now - max(since, rows[0][0] if rows else now)) / 86_400_000
+    has_roof = len(roof) >= 0.8 * span_days * 48   # only if rooftop history covers the demand history
     # hourly averages keep the fit small enough for a Pi
     bins = {}
     for t, d in rows:

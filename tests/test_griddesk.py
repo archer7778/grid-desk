@@ -144,8 +144,12 @@ def test_normal_model_learns():
         conn.execute("UPDATE regional SET demand=demand+900 WHERE region='NSW1' AND t_ms=?", (now,))
         conn.commit()
         a = model.assess(conn, now)["NSW1"]
-        print("model: +900 MW step ->", a["z"], a["reason"])
-        assert a["z"] > 5 and "more than weather" in a["reason"]
+        assert a["z"] > 5 and a["z_sustained"] < 5   # one interval: noted, not an alert
+        conn.execute("UPDATE regional SET demand=demand+900 WHERE region='NSW1' AND t_ms IN (?,?)", (now - 300_000, now - 600_000))
+        conn.commit()
+        a = model.assess(conn, now)["NSW1"]
+        print("model: +900 MW for 15 min ->", a["z_sustained"], a["reason"])
+        assert a["z_sustained"] > 5 and "more than weather" in a["reason"]
     finally:
         shutil.rmtree(tmp)
 

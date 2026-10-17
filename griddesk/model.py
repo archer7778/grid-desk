@@ -29,14 +29,17 @@ COOL_C, HEAT_C = 20.0, 15.0
 MIN_ROWS = 288 * 5     # five days of intervals before judging
 
 
-def _interp(series, t, max_gap):
-    """Linear interpolation in a sorted [(t, v)] list; None across gaps longer than max_gap."""
+def _interp(series, t, max_gap, hold=0):
+    """Linear interpolation in a sorted [(t, v)] list; None across gaps longer than max_gap.
+    hold: past the last point, keep its value for this long (for feeds published with a lag)."""
     if not series:
         return None
     ts = [s[0] for s in series] if not hasattr(series, "_ts") else series._ts
     i = bisect.bisect_left(ts, t)
     if i < len(ts) and ts[i] == t:
         return series[i][1]
+    if i >= len(ts) and hold and t - ts[-1] <= hold:
+        return series[-1][1]
     if i == 0 or i >= len(ts):
         return None
     (t0, v0), (t1, v1) = series[i - 1], series[i]
@@ -93,7 +96,9 @@ class RegionModel:
         self.region, self.now = region, now
         self.since = now - days * DAY
         dem, self.wx, self.roof = load(conn, region, self.since, now)
-        self.has_roof = len(self.roof) > 48
+        # use rooftop solar only if it covers most of the window (it has its own archive and can
+        # lag behind demand history); otherwise leave it out rather than drop most of the data
+        self.has_roof = len(self.roof) >= 0.8 * days * 48
         self.t0 = self.since
         rows = []
         for t, d in dem:
@@ -145,7 +150,7 @@ class RegionModel:
         if temp is None:
             return None
         if self.has_roof:
-            roof = _interp(self.roof, t, 2 * 3600_000) if roof is None else roof
+            roof = _interp(self.roof, t, 2 * 3600_000, hold=3600_000) if roof is None else roof
             if roof is None:
                 roof = self.typ.get(int(_slot(t)[0] * 48), (None, 0.0))[1]
         return self.f(_feats(t, temp, roof or 0.0, self.t0, self.has_roof))
@@ -183,8 +188,18 @@ def assess(conn, now=None, days=28):
             out[reg] = res
             continue
         z = (actual - exp) / m.sigma
+        # one noisy interval isn't news: "sustained" is the smallest of the last three, if they agree in sign
+        recent = conn.execute("SELECT t_ms, demand FROM regional WHERE region=? AND demand IS NOT NULL AND t_ms<=? "
+                              "ORDER BY t_ms DESC LIMIT 3", (reg, now)).fetchall()
+        zs = []
+        for rt, rd in recent:
+            e = m.expected(rt)
+            if e is not None:
+                zs.append((rd - e) / m.sigma)
+        sustained = (min(zs, key=abs) if len(zs) == 3 and (all(x > 0 for x in zs) or all(x < 0 for x in zs)) else 0.0)
         res.update(status="ok", t=t, actual=actual, expected=round(exp, 1), typical=round(typ, 1) if typ else None,
                    band=[round(exp + m.q05, 1), round(exp + m.q95, 1)], sigma=round(m.sigma, 1), z=round(z, 2),
+                   z_sustained=round(sustained, 2),
                    temp=temp, unexplained=round(actual - exp, 1), unexplained_pct=_pct(actual - exp, exp),
                    vs_typical=round(actual - typ, 1) if typ else None, vs_typical_pct=_pct(actual - typ, typ) if typ else None,
                    explained=round(exp - typ, 1) if typ else None)
@@ -209,8 +224,8 @@ def explain(r, info):
             parts.append(f"mostly explained by weather and sunshine ({why})")
         else:
             parts.append("more than weather and sunshine explain: a large load, an outage or a holiday")
-    if abs(r.get("z") or 0) >= 3:
-        parts.append(f"unusual for the model ({r['z']:+.1f}σ)")
+    if abs(r.get("z_sustained") or 0) >= 3:
+        parts.append(f"unusual for the model ({r['z']:+.1f}σ, for 15 minutes)")
     return "; ".join(parts) + "."
 
 

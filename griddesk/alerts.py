@@ -75,7 +75,7 @@ def current(conn, cfg, now=None, assessment=None):
                     "t": tr["t"], "msg": f"{tr['station']} dropped from {tr['from_mw']:.0f} to {tr['to_mw']:.0f} MW "
                                         f"in five minutes (possible trip)"})
     for reg, a in (assessment or {}).items():
-        if a.get("status") == "ok" and abs(a.get("z") or 0) >= cfg["alerts"]["departure_sigma"] and now - a["t"] < HOUR:
+        if a.get("status") == "ok" and abs(a.get("z_sustained") or 0) >= cfg["alerts"]["departure_sigma"] and now - a["t"] < HOUR:
             out.append({"key": f"dem:{reg}:{a['t'] // (3 * HOUR)}", "sev": "warn", "kind": "demand", "region": reg,
                         "t": a["t"], "msg": f"{REGIONS[reg]['short']} demand {a['unexplained']:+,.0f} MW from its normal "
                                            f"({a['z']:+.1f}σ). {a.get('reason', '')}"})

@@ -24,6 +24,8 @@ FEEDS = {
                 "pattern": r"PUBLIC_ROOFTOP_PV_ACTUAL_MEASUREMENT_(\d{12})\d*_\d+\.zip"},
     "notices": {"dir": "/Reports/Current/Market_Notice/", "pattern": r"NEMITWEB1_MKTNOTICE_(\d{8})\.R\d+"},
     "dispatch_archive": {"dir": "/Reports/Archive/DispatchIS_Reports/", "pattern": r"PUBLIC_DISPATCHIS_(\d{8})\.zip"},
+    "rooftop_archive": {"dir": "/Reports/Archive/ROOFTOP_PV/ACTUAL/",
+                        "pattern": r"PUBLIC_ROOFTOP_PV_ACTUAL_MEASUREMENT_(\d{8})\.zip"},
 }
 
 MAX_FILE = 200_000_000

@@ -36,6 +36,13 @@ def main():
             if not ls:
                 r["note"] = "pattern matched nothing; see listing_*.html"
                 continue
+            if feed == "rooftop_archive":
+                data = c.get(ls[-1][2])
+                t = mms.read_any(data)
+                r["archive_size_bytes"] = len(data)
+                r["tables"] = {k: {"rows": len(v), "columns": list(v[0].keys()) if v else []} for k, v in t.items()}
+                r["first_rows"] = {k: v[:2] for k, v in t.items()}
+                continue
             if feed == "dispatch_archive":
                 data = c.get(ls[-1][2])
                 r["archive_newest_size_bytes"] = len(data)

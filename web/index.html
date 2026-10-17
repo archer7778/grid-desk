@@ -276,7 +276,7 @@ function stackChart(el,mix,roof){
 }
 
 /* ---------- grid tab ---------- */
-function sevOf(r){const lor=STATE.reserve.filter(a=>a.region===r.region);if(lor.some(a=>a.level>=2&&a.basis==='actual'))return 'crit';if(lor.length)return 'warn';const z=r.normal&&r.normal.z;if(z!=null&&Math.abs(z)>=(CONF.departure_sigma||3))return 'warn';return 'ok'}
+function sevOf(r){const lor=STATE.reserve.filter(a=>a.region===r.region);if(lor.some(a=>a.level>=2&&a.basis==='actual'))return 'crit';if(lor.length)return 'warn';const z=r.normal&&r.normal.z_sustained;if(z!=null&&Math.abs(z)>=(CONF.departure_sigma||3))return 'warn';return 'ok'}
 function renderStrip(){
   const R=Object.values(STATE.regions),tot=R.reduce((s,r)=>s+(r.demand||0),0),hi=R.filter(r=>r.price!=null).sort((a,b)=>b.price-a.price)[0];
   const lor=STATE.reserve[0],al=STATE.alerts;
