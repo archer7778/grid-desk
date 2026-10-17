@@ -202,7 +202,8 @@ def assess(conn, now=None, days=28):
                    z_sustained=round(sustained, 2),
                    temp=temp, unexplained=round(actual - exp, 1), unexplained_pct=_pct(actual - exp, exp),
                    vs_typical=round(actual - typ, 1) if typ else None, vs_typical_pct=_pct(actual - typ, typ) if typ else None,
-                   explained=round(exp - typ, 1) if typ else None)
+                   explained=round(exp - typ, 1) if typ else None, rooftop_in_model=m.has_roof,
+                   daylight=6 <= _dt.datetime.fromtimestamp(t / 1000, NEM).hour < 18)
         res["reason"] = explain(res, info)
         out[reg] = res
     return out
@@ -226,6 +227,10 @@ def explain(r, info):
                          else "within ordinary day-to-day variation")
         elif abs(ex) >= abs(un):
             parts.append(f"mostly explained by weather and sunshine ({why})")
+        elif not r.get("rooftop_in_model") and r.get("daylight"):
+            # without rooftop solar in the model, a sunny day looks like missing demand
+            parts.append("more than weather explains, probably rooftop solar, which isn't in the model yet "
+                         "(its history is still filling in)")
         else:
             parts.append("more than weather and sunshine explain: a large load, an outage or a holiday")
     if abs(r.get("z_sustained") or 0) >= 3:
