@@ -214,13 +214,17 @@ def explain(r, info):
         return ""
     parts = []
     vt = r["vs_typical_pct"]
+    ex, un, z = r.get("explained") or 0, r.get("unexplained") or 0, r.get("z") or 0
     if abs(vt) < 3:
         parts.append(f"Demand is close to a typical day ({vt:+.0f}%)")
     else:
         parts.append(f"Demand is {abs(vt):.0f}% {'above' if vt > 0 else 'below'} a typical day for this time")
-        ex, un = r.get("explained") or 0, r.get("unexplained") or 0
-        if abs(ex) >= abs(un):
-            why = (f"{r['temp']:.0f} °C in {info['city']}" if r.get("temp") is not None else "the weather")
+        why = (f"{r['temp']:.0f} °C in {info['city']}" if r.get("temp") is not None else "the weather")
+        if abs(z) < 2:
+            # what weather doesn't explain is within ordinary day-to-day variation: don't over-read it
+            parts.append(f"mostly weather and sunshine ({why})" if abs(ex) >= abs(un)
+                         else "within ordinary day-to-day variation")
+        elif abs(ex) >= abs(un):
             parts.append(f"mostly explained by weather and sunshine ({why})")
         else:
             parts.append("more than weather and sunshine explain: a large load, an outage or a holiday")

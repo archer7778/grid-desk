@@ -43,8 +43,8 @@ def robust_fit(X, y, ridge=1e-3, iters=3, w0=None):
         for i in range(n):
             for j in range(i):
                 A[i][j] = A[j][i]
-            if i:
-                A[i][i] += ridge * tot * scale[i] ** 2
+            if i:   # a column that's all zeros (no cold days yet, say) gets a plain ridge and a zero coefficient
+                A[i][i] += ridge * tot * (scale[i] ** 2 if scale[i] > 1e-6 else 1.0)
         c = solve(A, b)
         if c is None:
             break

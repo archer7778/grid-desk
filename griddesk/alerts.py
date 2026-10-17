@@ -37,8 +37,12 @@ def trips(conn, cfg, now, hours=24):
     out, prev = [], None
     for r in rows:
         if prev and prev["duid"] == r["duid"] and r["t_ms"] - prev["t_ms"] <= 300_000:
+            m = meta.get(r["duid"], {})
+            # batteries (and pumped hydro run as storage) stop or reverse in an instant by design: not trips
+            if m.get("fuel") == "battery":
+                prev = r
+                continue
             if prev["mw"] >= big and r["mw"] <= 0.2 * prev["mw"] and prev["mw"] - r["mw"] >= big:
-                m = meta.get(r["duid"], {})
                 out.append({"t": r["t_ms"], "duid": r["duid"], "station": m.get("station") or r["duid"],
                             "region": m.get("region"), "fuel": m.get("fuel"), "from_mw": prev["mw"], "to_mw": r["mw"]})
         prev = r

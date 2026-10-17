@@ -11,3 +11,7 @@ One line per real decision and why.
 - 2026-10-17 · **The unit list (fuel per generator) is built from AEMO's registration spreadsheet** by a tiny no-dependency .xlsx reader. Units missing from it show as "unclassified" rather than guessed.
 - 2026-10-17 · **Facility positions:** suburb coordinates only where the source names a suburb; otherwise the city, drawn dashed as approximate.
 - 2026-10-17 · **Map without tile servers:** a Natural Earth coastline drawn in SVG, so there's no third-party tile dependency or usage-policy issue for a public site.
+- 2026-10-17 · **Batteries are never "trips":** they stop or reverse in one interval by design (found on real data: "Orana BESS dropped from 283 to 0 MW").
+- 2026-10-17 · **Demand alerts need three intervals in a row** beyond the threshold. Single intervals reach 3–4σ from noise alone.
+- 2026-10-17 · **The explanation sentence only blames "something other than weather" when the gap is at least 2σ.** Below that, it says the gap is within ordinary variation.
+- 2026-10-17 · **Rooftop solar is a model input only when its history covers 80% of the window.** Otherwise the model drops it instead of throwing away the intervals that have no rooftop reading.

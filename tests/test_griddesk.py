@@ -114,6 +114,10 @@ def test_fetch_pipeline():
         # the trip of ERARING1 (576 MW to 0) is caught
         tr = alerts.trips(conn, cfg, now)
         assert any(t["duid"] == "ERARING1" for t in tr), tr
+        # a battery stopping in an instant is normal, not a trip
+        conn.execute("INSERT OR REPLACE INTO units(duid,t_ms,mw) VALUES('VBBG1',?,283),('VBBG1',?,0)", (now - 600_000, now - 300_000))
+        conn.commit()
+        assert not any(t["duid"] == "VBBG1" for t in alerts.trips(conn, cfg, now))
         al = alerts.current(conn, cfg, now)
         assert any(a["kind"] == "reserve" and a["sev"] == "crit" for a in al)
         s = alerts.summary(conn, cfg, now)
@@ -155,6 +159,10 @@ def test_normal_model_learns():
         now = now5()
         g = synth.Grid(seed=4)
         synth.fill_db(conn, g, now - 28 * DAY, now)
+        # a week that never gets cold (no heating at all) still fits
+        conn.execute("UPDATE weather SET temp=MAX(temp, 16.0) WHERE region='QLD1'")
+        conn.commit()
+        assert model.RegionModel(conn, "QLD1", now).coef is not None
         m = model.RegionModel(conn, "NSW1", now)
         # the synthetic truth: rooftop solar lowers demand 0.9 MW per MW; noise sd 60 MW
         roof = m.coef[-2]
