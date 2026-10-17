@@ -15,3 +15,7 @@ One line per real decision and why.
 - 2026-10-17 · **Demand alerts need three intervals in a row** beyond the threshold. Single intervals reach 3–4σ from noise alone.
 - 2026-10-17 · **The explanation sentence only blames "something other than weather" when the gap is at least 2σ.** Below that, it says the gap is within ordinary variation.
 - 2026-10-17 · **Rooftop solar is a model input only when its history covers 80% of the window.** Otherwise the model drops it instead of throwing away the intervals that have no rooftop reading.
+- 2026-10-17 · **Reserve conditions are keyed by the day they're for and expire when their stated period ends.** Forecast LOR notices are often days ahead ("in the SA Region on 20/10/2026 … From 0600 hrs to 0900 hrs"); showing them as current, or letting a cancellation for one day cancel another, misled readers (found by an outside review of the demo).
+- 2026-10-17 · **"Grid demand", not "operational demand":** the figure is AEMO's dispatch TOTALDEMAND (scheduled and semi-scheduled supply), which leaves out rooftop solar and small non-scheduled generators. Underlying demand is shown separately as an approximation.
+- 2026-10-17 · **Interconnectors are shown as named directions** ("VIC → SA"), using AEMO's per-link sign convention, rather than signed numbers.
+- 2026-10-17 · **Every age on the page is computed from one clock every second,** and the demo says plainly that it's a snapshot, not live.

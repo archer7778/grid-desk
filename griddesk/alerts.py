@@ -6,25 +6,72 @@ import urllib.request
 
 from . import __version__
 from . import db as dbm
+from . import mms
 from .config import REGIONS
 
 HOUR = 3600_000
+NEM = mms.NEM_TZ
 
 
-def lor_status(conn, now, hours=24):
+def _when(periods):
+    """[[start, end], ...] -> 'Tue 20 Oct, 06:00–09:00 AEST' (market time)."""
+    if not periods:
+        return None
+    f = lambda t: _dt.datetime.fromtimestamp(t / 1000, NEM)
+    a, b = f(periods[0][0]), f(periods[0][1])
+    if b - _dt.timedelta(minutes=1) < a.replace(hour=0, minute=0) + _dt.timedelta(days=1):
+        txt = f"{a:%a} {a.day} {a:%b}, {a:%H:%M}–{'24:00' if b.hour == 0 and b.minute == 0 and b.date() > a.date() else f'{b:%H:%M}'}"
+    else:
+        txt = f"{a:%a} {a.day} {a:%b} {a:%H:%M} to {b:%a} {b.day} {b:%b} {b:%H:%M}"
+    more = len(periods) - 1
+    return txt + " AEST" + (f" and {more} more period{'s' if more > 1 else ''}" if more else "")
+
+
+def lor_status(conn, now, hours=24, days_ahead=7):
     """Lack of Reserve conditions per region. AEMO issues LOR1 (reserve getting low), LOR2 (low) and
-    LOR3 (load shedding possible or happening), as forecasts and as actual conditions, and cancels
-    them when they pass. The newest notice for a region and level wins."""
-    rows = conn.execute("SELECT id, t_ms, region, lor, kind, reference FROM notices WHERE lor IS NOT NULL AND t_ms>? "
-                        "AND t_ms<=? ORDER BY t_ms, id", (now - hours * HOUR, now)).fetchall()
+    LOR3 (load shedding possible or happening), as forecasts (often days ahead) and as actual
+    conditions, updates them, and cancels them when they pass.
+
+    A condition is keyed by region, level, forecast/actual and the day it's for, so cancelling
+    Tuesday's forecast doesn't cancel Wednesday's. The newest notice for a key wins (AEMO's updates
+    replace the earlier figures). A condition stops being shown once its stated period is over; one
+    without a stated period is shown for `hours` after it was issued."""
+    rows = conn.execute("SELECT id, t_ms, region, lor, kind, reference, reason FROM notices WHERE lor IS NOT NULL "
+                        "AND t_ms>? AND t_ms<=? ORDER BY t_ms, id", (now - days_ahead * 24 * HOUR, now)).fetchall()
     state = {}
     for r in rows:
         if r["region"] not in REGIONS:
             continue
-        key = (r["region"], r["lor"], "actual" if r["kind"] == "actual" or "actual" in (r["reference"] or "").lower() else "forecast")
-        state[key] = None if r["kind"] == "cancelled" else dict(r)
-    active = [dict(v, level=k[1], basis=k[2]) for k, v in state.items() if v]
-    return sorted(active, key=lambda a: (-a["level"], a["basis"] != "actual"))
+        d = mms.lor_details(r["reason"], r["reference"])
+        basis = "actual" if r["kind"] == "actual" or "actual" in (r["reference"] or "").lower() else "forecast"
+        key = (r["region"], r["lor"], basis, d["day"])
+        if r["kind"] == "cancelled":
+            for k in list(state):
+                if k[:3] == key[:3] and (d["day"] is None or k[3] == d["day"]):
+                    state[k] = None
+            continue
+        prev = state.get(key)
+        v = dict(r, **d)
+        v.pop("reason", None)
+        v["updates"] = (prev or {}).get("updates", []) + ([prev["id"]] if prev else [])
+        state[key] = v
+    active = []
+    for (reg, lvl, basis, day), v in state.items():
+        if not v:
+            continue
+        if v["periods"]:
+            if max(b for _, b in v["periods"]) <= now:
+                continue
+        elif day and basis == "forecast":
+            end = int(_dt.datetime.fromisoformat(day).replace(tzinfo=NEM).timestamp() * 1000) + 24 * HOUR
+            if end <= now:
+                continue
+        elif now - v["t_ms"] > hours * HOUR:
+            continue
+        start = min((a for a, _ in v["periods"]), default=None)
+        active.append(dict(v, level=lvl, basis=basis, when=_when(v["periods"]), start=start,
+                           in_progress=bool(start is not None and start <= now)))
+    return sorted(active, key=lambda a: (a["basis"] != "actual", -a["level"], a["start"] or a["t_ms"]))
 
 
 def trips(conn, cfg, now, hours=24):
@@ -62,10 +109,21 @@ def current(conn, cfg, now=None, assessment=None):
     out = []
     for a in lor_status(conn, now):
         sev = "crit" if a["level"] >= 2 and a["basis"] == "actual" else "warn"
-        out.append({"key": f"lor:{a['region']}:{a['level']}:{a['basis']}:{a['id']}", "sev": sev, "kind": "reserve",
+        short = REGIONS[a["region"]]["short"]
+        if a["basis"] == "actual":
+            head = f"Actual LOR{a['level']} in {short}"
+        else:
+            head = f"Forecast LOR{a['level']} in {short}" + (f" for {a['when']}" if a["when"] else
+                                                               f" for {a['day']}" if a["day"] else "")
+        tail = ""
+        if a.get("available_mw") is not None and a.get("required_mw") is not None:
+            tail += f" Reserve {'forecast ' if a['basis'] == 'forecast' else ''}as low as {a['available_mw']:,.0f} MW against {a['required_mw']:,.0f} MW needed."
+        if a["basis"] == "forecast":
+            tail += " This is a forecast, not a current shortage." if not a["in_progress"] else " The forecast period is under way."
+        out.append({"key": f"lor:{a['region']}:{a['level']}:{a['basis']}:{a['day'] or a['id']}", "sev": sev, "kind": "reserve",
                     "region": a["region"], "t": a["t_ms"],
-                    "msg": f"{'Actual' if a['basis'] == 'actual' else 'Forecast'} LOR{a['level']} in "
-                           f"{REGIONS[a['region']]['short']}: {LOR_TEXT[a['level']]} (AEMO notice {a['id']})"})
+                    "msg": f"{head}: {LOR_TEXT[a['level']]}.{tail} (AEMO notice {a['id']}"
+                           f"{', updating ' + ', '.join(map(str, a['updates'])) if a['updates'] else ''})"})
     latest = conn.execute("SELECT region, t_ms, price FROM regional WHERE price IS NOT NULL AND t_ms=("
                           "SELECT MAX(t_ms) FROM regional WHERE price IS NOT NULL AND t_ms<=?)", (now,)).fetchall()
     for r in latest:

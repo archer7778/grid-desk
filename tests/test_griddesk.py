@@ -23,6 +23,7 @@ from griddesk import db as dbm  # noqa: E402
 from griddesk.config import Config  # noqa: E402
 
 DAY = 86_400_000
+HOUR_MS = 3_600_000
 
 
 def cfg_for(tmp, port=None, **extra):
@@ -65,6 +66,43 @@ def test_parse_mms_by_column_name():
     assert c["kind"] == "cancelled"
     assert mms.parse_notice("garbage") is None
     print("parse: ok")
+
+
+def test_reserve_periods():
+    """Forecast LOR notices are for a stated period, often days ahead: show the period, expire it when
+    it's over, let updates replace earlier figures, and cancel only the day the cancellation names."""
+    tmp = Path(tempfile.mkdtemp())
+    cfg = cfg_for(tmp, 1)
+    conn = dbm.open_db(cfg)
+    now = now5()
+    day0 = (now + 10 * HOUR_MS) // DAY * DAY - 10 * HOUR_MS        # midnight market time today
+    tue = (day0 + 3 * DAY + 6 * HOUR_MS, day0 + 3 * DAY + 9 * HOUR_MS)  # 06:00-09:00 in three days
+    wed = (day0 + 4 * DAY + 17 * HOUR_MS, day0 + 4 * DAY + 19 * HOUR_MS)
+    past = (now - 5 * HOUR_MS, now - 2 * HOUR_MS)
+    texts = [synth.notice_text(1, now - 9 * HOUR_MS, 2, "SA", "Forecast", period=tue, avail=487),
+             synth.notice_text(2, now - 1 * HOUR_MS, 2, "SA", "Forecast", period=tue, avail=455),   # an update
+             synth.notice_text(3, now - 8 * HOUR_MS, 1, "SA", "Forecast", period=wed),
+             synth.notice_text(4, now - 2 * HOUR_MS, 1, "SA", "Forecast", period=tue, cancel=True),  # another day's LOR1
+             synth.notice_text(5, now - 6 * HOUR_MS, 1, "NSW", "Forecast", period=past)]           # already over
+    for tx in texts:
+        n = mms.parse_notice(tx)
+        conn.execute("INSERT INTO notices(id,t_ms,type,region,lor,kind,reference,reason) VALUES(?,?,?,?,?,?,?,?)",
+                     (n["id"], n["t_ms"], n["type"], n["region"], n["lor"], n["kind"], n["reference"], n["reason"]))
+    conn.commit()
+    lor = alerts.lor_status(conn, now)
+    got = {(a["region"], a["level"], a["day"]): a for a in lor}
+    print("reserve periods:", [(k, a["when"], a["available_mw"], a["updates"]) for k, a in got.items()])
+    sa2 = [a for a in lor if a["level"] == 2]
+    assert len(sa2) == 1 and sa2[0]["id"] == 2 and sa2[0]["updates"] == [1] and sa2[0]["available_mw"] == 455
+    assert sa2[0]["periods"] == [list(tue)] and "06:00–09:00 AEST" in sa2[0]["when"] and not sa2[0]["in_progress"]
+    assert any(a["level"] == 1 and a["region"] == "SA1" for a in lor), "cancelling Tuesday's LOR1 mustn't cancel Wednesday's"
+    assert not any(a["region"] == "NSW1" for a in lor), "a forecast whose period is over isn't shown"
+    msgs = [a["msg"] for a in alerts.current(conn, cfg, now) if a["kind"] == "reserve"]
+    assert any("not a current shortage" in m and "455 MW against 524 MW" in m for m in msgs), msgs
+    # once Tuesday's period is under way, then over
+    assert alerts.lor_status(conn, tue[0] + HOUR_MS)[0]["in_progress"]
+    assert not any(a["level"] == 2 for a in alerts.lor_status(conn, tue[1] + 60_000))
+    conn.close()
 
 
 def test_fetch_pipeline():
@@ -358,6 +396,7 @@ def test_unit_list_and_fuzz():
 
 if __name__ == "__main__":
     test_parse_mms_by_column_name()
+    test_reserve_periods()
     test_fetch_pipeline()
     test_rooftop_history()
     test_normal_model_learns()

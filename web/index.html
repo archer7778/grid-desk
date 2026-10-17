@@ -64,7 +64,7 @@ nav button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
 .ok .dot{background:var(--good)} .warn .dot{background:var(--warn)} .crit .dot{background:var(--crit)}
 .regions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:12px}
-.rcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.rcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;cursor:pointer;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;justify-content:flex-start}
 .rcard[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .rcard .top{display:flex;justify-content:space-between;align-items:baseline}
 .rcard .name{font:600 15px var(--f-display);letter-spacing:.04em}
@@ -95,7 +95,7 @@ h2{font:600 13px var(--f-display);letter-spacing:.08em;text-transform:uppercase;
 .legend i.line{height:2px;vertical-align:3px}
 .legend i.dash{height:0;border-top:2px dashed;background:none!important;vertical-align:3px}
 .alerts{display:flex;flex-direction:column}
-.alert{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.alert{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;align-items:start}
 .alert:last-child{border-bottom:0}
 .alert .t{grid-column:2;color:var(--muted);font-size:12px}
 .empty{padding:14px;color:var(--muted);font-size:13px}
@@ -123,7 +123,7 @@ pre.summary{white-space:pre-wrap;font:13px/1.55 var(--f-body);margin:0}
   <div class="livebar" id="livebar"><span id="liveText">Connecting…</span><span class="note">Public AEMO data · not affiliated with AEMO · not trading advice</span></div>
   <header>
     <div class="brand"><span class="label">Grid Desk</span><h1>National Electricity Market</h1>
-      <div class="sub">Queensland, New South Wales, Victoria, South Australia and Tasmania · live every 5 minutes</div></div>
+      <div class="sub">Queensland, New South Wales, Victoria, South Australia and Tasmania · <span id="cadence">new data every 5 minutes</span></div></div>
     <div class="clock"><div><span class="label">Market time (AEST)</span><div class="v" id="clk">--:--</div></div>
       <div><span class="label">Data as of</span><div class="v" id="asof">—</div></div></div>
   </header>
@@ -178,6 +178,12 @@ pre.summary{white-space:pre-wrap;font:13px/1.55 var(--f-body);margin:0}
       <p>Grid Desk watches Australia's National Electricity Market (NEM) the way an operations desk would: demand, prices, generation and interconnector flows every 5 minutes, AEMO's reserve notices, and units dropping out. For each region it learns what demand normally looks like for the time of day, day of the week, temperature and rooftop sunshine, and says when today departs from that, and why.</p>
       <p>The data-centre tab shows how much electricity data centres use and plan to use, as honestly as public data allows. It keeps three kinds of number apart: <b>published</b> (from AEMO's reports), <b>announced</b> (operators' stated capacity, a maximum) and <b>estimated</b> (our own inference, always with a range). It never claims to measure one facility's live use and never blames a facility for a grid event.</p>
       <p>It is an independent project, not affiliated with AEMO or any operator, and nothing here is trading or investment advice.</p></div></div>
+    <div class="panel"><div class="ph"><h2>How the numbers are worked out</h2></div><div class="pb note">
+      <p><b>Grid demand</b> is AEMO’s dispatch total demand for each region: what the grid’s scheduled and semi-scheduled generators and interconnectors supply each 5 minutes. Rooftop solar isn’t in it, because it’s used behind the meter; AEMO estimates it separately (half-hourly), and adding it back gives an approximate <b>underlying demand</b>. Totals are sums of the regional figures as shown.</p>
+      <p><b>Expected demand (learned normal)</b> is fitted to each region’s own last 28 days: daily shape for weekdays and weekends, temperature (heating and cooling), rooftop solar once its history is long enough, and a slow trend. The fit down-weights unusual days so they don’t become the normal. <b>The 90% band</b> is the range the model’s errors stayed within on 90% of the intervals it was fitted to. <b>σ</b> (sigma) is the typical size of those errors; a demand alert needs three intervals in a row at least <span class="sigN">3</span>σ from expected. <b>Typical</b> is what the model expects for that time on the same kind of day with ordinary weather and sunshine (the median for that hour), so the gap between typical and expected is what today’s weather explains.</p>
+      <p><b>Reserve</b> comes from AEMO’s Lack of Reserve notices. Forecast notices are for a stated future period, shown with each one; a condition drops off when AEMO cancels it or its period ends. <b>Price spikes</b> are dispatch prices at or above the alert threshold. <b>Possible trips</b> are units above 200 MW falling by at least 80% within one interval (batteries excluded, since they stop by design).</p>
+      <p><b>Freshness:</b> the self-hosted console fetches every 5 minutes and says when data is more than 15 minutes old. The public demo is a snapshot rebuilt every 30–60 minutes by GitHub Actions, so it is always somewhat behind; the bar at the top says how far.</p>
+      <p><b>The morning summary</b> covers the previous 24 hours: each region’s peak demand, average and highest price, reserve notices and possible trips.</p></div></div>
     <div class="panel"><div class="ph"><h2>Sources and licences</h2></div><div class="pb note"><ul>
       <li><a href="https://nemweb.com.au" rel="noopener">AEMO NEMweb</a>: dispatch, prices, unit output, rooftop solar, interconnectors and market notices. Public data from the Australian Energy Market Operator.</li>
       <li><a href="https://open-meteo.com" rel="noopener">Open-Meteo</a>: hourly temperature for each capital, CC BY 4.0.</li>
@@ -198,7 +204,7 @@ const NEM_OFF=10*3600e3,HOUR=3600e3,MIN=60e3;
 const fmtT=t=>t?new Date(t+NEM_OFF).toISOString().slice(11,16):'—';
 const fmtDT=t=>t?new Date(t+NEM_OFF).toISOString().slice(5,16).replace('T',' '):'—';
 const n0=v=>v==null?'—':Math.round(v).toLocaleString('en-AU');
-const sgn=(v,d=0)=>v==null?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(d);
+const sgn=(v,d=0)=>{if(v==null)return '—';const a=Math.abs(v).toFixed(d);return Number(a)===0?a:(v>0?'+':'−')+a};
 const money=v=>v==null?'—':(v<0?'−$':'$')+Math.abs(v).toLocaleString('en-AU',{maximumFractionDigits:0});
 const ago=ms=>ms<90e3?Math.round(ms/1e3)+' s':ms<90*MIN?Math.round(ms/MIN)+' min':(ms/HOUR).toFixed(1)+' h';
 const FUELS=[['coal','Coal','--f-coal'],['gas','Gas','--f-gas'],['hydro','Hydro','--f-hydro'],['wind','Wind','--f-wind'],['solar','Solar farms','--f-solar'],['rooftop solar','Rooftop solar','--f-roof'],['battery','Batteries','--f-battery'],['other','Other / unclassified','--f-other']];
@@ -277,18 +283,25 @@ function stackChart(el,mix,roof){
 }
 
 /* ---------- grid tab ---------- */
+// AEMO interconnector IDs: [positive-flow from, to, everyday name]
+const IC_NAMES={'NSW1-QLD1':['NSW','QLD','QNI'],'N-Q-MNSP1':['NSW','QLD','Directlink'],'VIC1-NSW1':['VIC','NSW','VIC–NSW'],
+  'V-SA':['VIC','SA','Heywood'],'V-S-MNSP1':['VIC','SA','Murraylink'],'T-V-MNSP1':['TAS','VIC','Basslink']};
+function icDir(id){if(IC_NAMES[id])return IC_NAMES[id];const m=/^([A-Z]+)1-([A-Z]+)1$/.exec(id||'');return m?[m[1],m[2],'']:null}
 function sevOf(r){const lor=STATE.reserve.filter(a=>a.region===r.region);if(lor.some(a=>a.level>=2&&a.basis==='actual'))return 'crit';if(lor.length)return 'warn';const z=r.normal&&r.normal.z_sustained;if(z!=null&&Math.abs(z)>=(CONF.departure_sigma||3))return 'warn';return 'ok'}
 function renderStrip(){
-  const R=Object.values(STATE.regions),tot=R.reduce((s,r)=>s+(r.demand||0),0),hi=R.filter(r=>r.price!=null).sort((a,b)=>b.price-a.price)[0];
+  // totals are sums of the rounded regional figures, so they add up exactly to what the cards show
+  const R=Object.values(STATE.regions),tot=R.reduce((s,r)=>s+Math.round(r.demand||0),0),hi=R.filter(r=>r.price!=null).sort((a,b)=>b.price-a.price)[0];
   const lor=STATE.reserve[0],al=STATE.alerts;
-  const roof=R.reduce((s,r)=>s+(r.rooftop||0),0);
+  const roof=R.reduce((s,r)=>s+Math.round(r.rooftop||0),0),spike=hi&&hi.price>=STATE.price_spike;
   const chips=[
-    {cls:'ok',l:'NEM demand',v:n0(tot)+' MW',s:`Operational demand, five regions · plus ${n0(roof)} MW from rooftop solar`},
-    {cls:hi&&hi.price>=STATE.price_spike?'warn':'ok',l:'Highest price',v:hi?money(hi.price)+'/MWh':'—',s:hi?hi.short+' · spike alert above '+money(STATE.price_spike):''},
-    {cls:lor?(lor.level>=2&&lor.basis==='actual'?'crit':'warn'):'ok',l:'Reserve',v:lor?`${lor.basis==='actual'?'Actual':'Forecast'} LOR${lor.level}`:'No LOR notices',s:lor?(lor.region||'').replace('1','')+' · AEMO notice '+lor.id:'Enough spare capacity, per AEMO'},
-    {cls:al.some(a=>a.sev==='crit')?'crit':al.length?'warn':'ok',l:'Alerts',v:al.length+' open',s:al.length?al[0].msg.slice(0,60)+'…':'Nothing needs attention'},
-    {cls:STATE.t&&STATE.now-STATE.t<20*MIN?'ok':'warn',l:'Latest interval',v:STATE.t?fmtT(STATE.t)+' AEST':'—',s:STATE.t?ago(Date.now()-STATE.t)+' ago':'Waiting for the first fetch'}];
-  $('#strip').innerHTML=chips.map(c=>`<div class="chip ${c.cls}"><span class="label"><span class="dot"></span>${esc(c.l)}</span><div class="v">${esc(c.v)}</div><div class="s">${esc(c.s)}</div></div>`).join('');
+    {cls:'ok',l:'Grid demand',v:n0(tot)+' MW',s:roof>=1?`Five regions, met by the grid · rooftop solar adds about ${n0(roof)} MW, so underlying demand is roughly ${n0(tot+roof)} MW`:'Five regions, met by the grid · no rooftop solar output now',
+     tip:'AEMO dispatch total demand (TOTALDEMAND): what the grid’s scheduled and semi-scheduled generators and interconnectors supply. It leaves out rooftop solar and small non-scheduled generators. Underlying demand adds AEMO’s rooftop-solar estimate back; it’s an approximation, not an AEMO figure.'},
+    {cls:spike?'warn':'ok',l:'Highest regional price',v:hi?money(hi.price)+'/MWh':'—',s:hi?`${hi.short}, latest interval · ${spike?'above':'below'} the ${money(STATE.price_spike)}/MWh spike-alert threshold`:''},
+    {cls:lor?(lor.level>=2&&lor.basis==='actual'?'crit':'warn'):'ok',l:'Reserve',v:lor?`${lor.basis==='actual'?'Actual':'Forecast'} LOR${lor.level}`:'No LOR notices',
+     s:lor?`${(lor.region||'').replace('1','')}${lor.when?' · for '+lor.when:''}${lor.basis==='forecast'&&!lor.in_progress?' · a forecast, not a current shortage':''}`:'Enough spare capacity, per AEMO'},
+    {cls:al.some(a=>a.sev==='crit')?'crit':al.length?'warn':'ok',l:'Alerts',v:al.length+' open',s:al.length?al[0].msg.slice(0,70)+'…':'Nothing needs attention'},
+    {cls:STATE.t&&Date.now()-STATE.t<20*MIN?'ok':'warn',l:'Latest interval',v:STATE.t?fmtT(STATE.t)+' AEST':'—',s:STATE.t?`<span data-age="${STATE.t}">${ago(Date.now()-STATE.t)}</span> ago${ST?' · demo snapshot':''}`:'Waiting for the first fetch',html:true}];
+  $('#strip').innerHTML=chips.map(c=>`<div class="chip ${c.cls}"${c.tip?` title="${esc(c.tip)}"`:''}><span class="label"><span class="dot"></span>${esc(c.l)}</span><div class="v">${esc(c.v)}</div><div class="s">${c.html?c.s:esc(c.s)}</div></div>`).join('');
 }
 function renderRegions(){
   $('#regions').innerHTML=Object.values(STATE.regions).map(r=>{const n=r.normal||{},sev=sevOf(r);
@@ -297,15 +310,23 @@ function renderRegions(){
     const vs=n.status==='ok'&&n.vs_typical_pct!=null?`${sgn(n.vs_typical_pct)}% vs typical`:n.status==='learning'?'learning normal':'—';
     return `<button class="rcard" aria-pressed="${r.region===SEL}" data-reg="${esc(r.region)}"><div class="top"><span class="name">${esc(r.short)}</span><span class="pill ${sev}">${sev==='ok'?'Normal':sev==='crit'?'Tight':'Watch'}</span></div>
       <div><span class="big">${n0(r.demand)}</span><span class="unit">MW</span></div>
-      <dl><dt>vs normal</dt><dd>${esc(vs)}</dd><dt>Price</dt><dd>${money(r.price)}/MWh</dd><dt>${esc(r.city)}</dt><dd>${r.temp!=null?r.temp.toFixed(0)+' °C':'—'}</dd><dt>Rooftop solar</dt><dd>${n0(r.rooftop)} MW</dd></dl>
+      <dl><dt>vs normal</dt><dd>${esc(vs)}</dd><dt>Price</dt><dd>${money(r.price)}/MWh</dd><dt title="Open-Meteo hourly air temperature (weather-model data, not a station reading) for ${esc(r.city)}, at the latest interval">${esc(r.city)}</dt><dd>${r.temp!=null?r.temp.toFixed(0)+' °C':'—'}</dd><dt>Rooftop solar</dt><dd>${n0(r.rooftop)} MW</dd></dl>
       ${bar?`<div class="mixbar" aria-hidden="true">${bar}</div>`:''}</button>`}).join('');
 }
 function renderAlerts(){
   const al=STATE.alerts;$('#alertSub').textContent=al.length?al.length+' open':'';
   $('#alerts').innerHTML=al.length?al.map(a=>`<div class="alert"><span class="pill ${a.sev}">${a.sev==='crit'?'Alarm':'Caution'}</span><span>${esc(a.msg)}</span><span class="t">${fmtDT(a.t)} AEST</span></div>`).join(''):'<div class="empty">No open alerts. Reserve notices, price spikes, units dropping out and demand far from normal appear here.</div>';
-  const rs=STATE.reserve;$('#reserve').innerHTML=rs.length?rs.map(a=>`<div class="alert"><span class="pill ${a.level>=2&&a.basis==='actual'?'crit':'warn'}">LOR${a.level}</span><span>${esc(a.reference||((a.basis==='actual'?'Actual':'Forecast')+' LOR'+a.level+' in '+(a.region||'').replace('1','')))}</span><span class="t">AEMO notice ${esc(a.id)} · ${fmtDT(a.t_ms)} AEST</span></div>`).join(''):'<div class="empty">No current Lack of Reserve notices.</div>';
+  const rs=STATE.reserve;$('#reserve').innerHTML=rs.length?rs.map(a=>{
+    const what=`${a.basis==='actual'?'Actual':'Forecast'} LOR${a.level} in ${(a.region||'').replace('1','')}`+(a.when?` for ${a.when}`:a.day?` for ${a.day}`:'');
+    const mw=a.available_mw!=null&&a.required_mw!=null?` Reserve ${a.basis==='forecast'?'forecast ':''}as low as ${n0(a.available_mw)} MW against ${n0(a.required_mw)} MW needed.`:'';
+    const nowTxt=a.basis==='forecast'?(a.in_progress?' The forecast period is under way.':' A forecast, not a current shortage.'):'';
+    return `<div class="alert"><span class="pill ${a.level>=2&&a.basis==='actual'?'crit':'warn'}">LOR${a.level}</span><span><b>${esc(what)}</b>.${esc(mw+nowTxt)}</span><span class="t">AEMO notice ${esc(a.id)}${a.updates&&a.updates.length?' (latest update; earlier: '+esc(a.updates.join(', '))+')':''} · issued ${fmtDT(a.t_ms)} AEST</span></div>`}).join(''):'<div class="empty">No current or upcoming Lack of Reserve conditions.</div>';
   const ic=STATE.interconnectors;$('#icSub').textContent=STATE.interconnectors_t?'at '+fmtT(STATE.interconnectors_t)+' AEST':'';
-  $('#ics').innerHTML=ic.length?`<table><thead><tr><th>Link</th><th class="num">Flow MW</th><th class="num">Limits</th></tr></thead><tbody>${ic.map(i=>`<tr><td>${esc(i.ic)}</td><td class="num">${n0(i.flow)}</td><td class="num">${n0(i.import_limit)} … ${n0(i.export_limit)}</td></tr>`).join('')}</tbody></table><p class="pb note">Positive flow runs in the direction of the name (first region to second).</p>`:'<div class="empty">No data yet.</div>';
+  $('#ics').innerHTML=ic.length?`<table><thead><tr><th>Link</th><th>Flowing</th><th class="num">MW</th><th class="num">Limit that way</th></tr></thead><tbody>${ic.map(i=>{
+    const d=icDir(i.ic),pos=(i.flow||0)>=0,lim=pos?i.export_limit:(i.import_limit!=null?Math.abs(i.import_limit):null);
+    const dir=d?(pos?d[0]+' → '+d[1]:d[1]+' → '+d[0]):(pos?'positive':'negative')+' direction';
+    return `<tr><td title="AEMO interconnector ${esc(i.ic)}">${esc(d&&d[2]?d[2]:i.ic)}</td><td>${esc(dir)}</td><td class="num">${n0(Math.abs(i.flow||0))}</td><td class="num">${n0(lim)}</td></tr>`}).join('')}</tbody></table>
+    <p class="pb note">Direction uses AEMO’s sign convention for each link: a positive flow runs from the link’s first-named region to its second, which is northward or westward across the NEM (VIC1-NSW1 positive is Victoria to New South Wales; Basslink, T-V-MNSP1, positive is Tasmania to Victoria). The limit is AEMO’s dispatch limit in the current direction.</p>`:'<div class="empty">No data yet.</div>';
 }
 async function renderEvents(){
   try{const ev=await api('/api/events?hours=24');const rows=[];
@@ -399,14 +420,18 @@ function renderBaseline(){
 let AU={};
 async function refresh(){
   try{STATE=await api('/api/state')}catch(e){$('#livebar').classList.add('down');$('#liveText').textContent='Can’t reach the server: '+e.message;return}
-  $('#livebar').classList.toggle('down',!!(STATE.t&&Date.now()-STATE.t>30*MIN));
-  $('#liveText').textContent=ST?`Demo snapshot · real AEMO data · ${ago(Date.now()-ST.snapshot)} old, refreshed about hourly`:STATE.t?`Live · latest interval ${fmtT(STATE.t)} AEST`:'Waiting for the first fetch';
+  const stale=!!(STATE.t&&Date.now()-STATE.t>15*MIN);
+  $('#livebar').classList.toggle('down',!ST&&stale);
+  $('#liveText').innerHTML=ST?`Demo snapshot, not live · real AEMO data up to ${fmtT(STATE.t)} AEST (<span data-age="${STATE.t}">${ago(Date.now()-STATE.t)}</span> ago) · snapshot built ${fmtT(ST.snapshot)} AEST, rebuilt every 30–60 minutes`
+    :STATE.t?(stale?`Stale: no new data since ${fmtT(STATE.t)} AEST (<span data-age="${STATE.t}">${ago(Date.now()-STATE.t)}</span> ago). AEMO or the fetch job may be down.`:`Live · latest interval ${fmtT(STATE.t)} AEST (<span data-age="${STATE.t}">${ago(Date.now()-STATE.t)}</span> ago)`):'Waiting for the first fetch';
   $('#asof').textContent=STATE.t?fmtT(STATE.t):'—';
   if(!STATE.regions[SEL])SEL='NSW1';
   renderStrip();renderRegions();renderAlerts();
   if(TAB==='grid'){renderDetail();renderEvents()}
 }
-function tick(){$('#clk').textContent=new Date(Date.now()+NEM_OFF).toISOString().slice(11,19)}
+function tick(){$('#clk').textContent=new Date(Date.now()+NEM_OFF).toISOString().slice(11,19);
+  // every age on the page is worked out from the same clock, every second
+  document.querySelectorAll('[data-age]').forEach(e=>{e.textContent=ago(Date.now()-Number(e.dataset.age))})}
 document.addEventListener('click',e=>{
   const rc=e.target.closest('.rcard');if(rc){SEL=rc.dataset.reg;localStorage_set('gd.region',SEL);renderRegions();renderDetail();return}
   const tb=e.target.closest('nav button');if(tb){TAB=tb.dataset.tab;document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b===tb));for(const t of ['grid','dc','about'])$('#tab-'+t).classList.toggle('hidden',t!==TAB);if(TAB==='dc')renderDC();if(TAB==='grid'){renderDetail();renderEvents()}return}
@@ -415,6 +440,8 @@ document.addEventListener('click',e=>{
 async function boot(){
   try{CONF=await api('/api/config')}catch(e){$('#liveText').textContent='Can’t reach the server';setTimeout(boot,5000);return}
   $('#ver').textContent='Grid Desk '+CONF.version;
+  document.querySelectorAll('.sigN').forEach(e=>{e.textContent=CONF.departure_sigma||3});
+  if(ST)$('#cadence').textContent='a snapshot of AEMO data, rebuilt every 30–60 minutes';
   try{AU=await (await fetch((ST?'':'/')+'au.json')).json()}catch(e){AU={}}
   tick();setInterval(tick,1000);await refresh();
   if(ST){setInterval(refresh,10*MIN);return}

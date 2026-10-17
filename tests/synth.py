@@ -136,11 +136,22 @@ def rooftop_file(grid, t):
     return mms([("ROOFTOP", "ACTUAL", 2, ["INTERVAL_DATETIME", "REGIONID", "POWER", "QI", "TYPE"], rows)])
 
 
-def notice_text(nid, t, lor=None, region="NSW", kind="Actual", cancel=False):
-    """A market notice in the layout AEMO uses (checked against a real one by the data spike)."""
+def notice_text(nid, t, lor=None, region="NSW", kind="Actual", cancel=False, period=None, avail=487):
+    """A market notice in the layout AEMO uses (checked against a real one by the data spike).
+    `period` (start_ms, end_ms) writes a forecast the way STPASA notices do: 'in the SA Region on
+    20/10/2026' and 'From 0600 hrs 20/10/2026 to 0900 hrs 20/10/2026.'"""
     d = dt.datetime.fromtimestamp(t / 1000, NEM)
     ref = (f"{'Cancellation of ' if cancel else ''}{kind} Lack Of Reserve Level {lor} (LOR{lor}) in the {region} Region"
            if lor else "[EventId:x] NEGRES CONSTRAINT NRM_VIC1_SA1 ceased operating")
+    if lor and period:
+        a, b = (dt.datetime.fromtimestamp(x / 1000, NEM) for x in period)
+        ref = "STPASA - " + ref + f" on {a:%d/%m/%Y}"
+        body = (f"AEMO declares a {kind} LOR{lor} condition under clause 4.8.4(b) of the National Electricity Rules for the "
+                f"{region} region for the following period[s]:\n\n\n[1.] From {a:%H%M} hrs {a:%d/%m/%Y} to {b:%H%M} hrs {b:%d/%m/%Y}."
+                f"         \nThe forecast capacity reserve requirement is  524 MW.\nThe minimum capacity reserve available is {avail} MW."
+                f"\n\n\nAEMO is seeking a market response.")
+        if cancel:
+            body = f"Cancellation of the {kind} LOR{lor} condition in the {region} region on {a:%d/%m/%Y}."
     rule = "-" * 67
     return (f"{rule}\n                           MARKET NOTICE\n{rule}\n\n"
             f"From :              AEMO\nTo   :              NEMITWEB1\n"
@@ -151,8 +162,8 @@ def notice_text(nid, t, lor=None, region="NSW", kind="Actual", cancel=False):
             f"Issue Date              :         {d:%d/%m/%Y}\n"
             f"External Reference      :         {ref}\n\n{rule}\n\nReason :\n\n"
             f"AEMO ELECTRICITY MARKET NOTICE\n\n"
-            f"AEMO declares {'a cancellation of ' if cancel else 'a '}{kind} LOR{lor} condition for the {region} region.\n\n\n"
-            f"The capacity reserve requirement is  524 MW.\n\n\nManager NEM Real Time Operations\n\n"
+            + (body if lor and period else f"AEMO declares {'a cancellation of ' if cancel else 'a '}{kind} LOR{lor} condition for the {region} region.\n\n\n"
+            f"The capacity reserve requirement is  524 MW.") + "\n\n\nManager NEM Real Time Operations\n\n"
             f"{rule}\nEND OF REPORT\n{rule}\n")
 
 

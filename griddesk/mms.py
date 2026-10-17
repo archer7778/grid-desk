@@ -149,5 +149,50 @@ def parse_notice(text):
             "reference": ref[:300], "reason": body}
 
 
+_PERIOD = re.compile(r"from\s+(\d{3,4})\s*hrs\s+(\d{1,2})/(\d{1,2})/(\d{4})\s+(?:to|until)\s+(\d{3,4})\s*hrs\s+"
+                     r"(\d{1,2})/(\d{1,2})/(\d{4})", re.I)
+_REQUIRED = re.compile(r"reserve requirement is\s+([\d,]+(?:\.\d+)?)\s*MW", re.I)
+_AVAILABLE = re.compile(r"reserve available is\s+([\d,]+(?:\.\d+)?)\s*MW", re.I)
+_ON_DAY = re.compile(r"\bon\s+(\d{1,2})/(\d{1,2})/(\d{4})\b")
+
+
+def _hhmm(hhmm, d, m, y):
+    """'0600', 20, 10, 2026 (market time) -> ms; '2400' is midnight at the end of that day."""
+    hh, mm = divmod(int(hhmm), 100)
+    if hh > 24 or mm > 59:
+        raise ValueError(hhmm)
+    t = _dt.datetime(int(y), int(m), int(d), tzinfo=NEM_TZ) + _dt.timedelta(hours=hh, minutes=mm)
+    return int(t.timestamp() * 1000)
+
+
+def lor_details(reason, reference=""):
+    """What a Lack of Reserve notice says about when and how much. AEMO writes, for example:
+    'for the following period[s]: [1.] From 0600 hrs 20/10/2026 to 0900 hrs 20/10/2026. The forecast
+    capacity reserve requirement is 524 MW. The minimum capacity reserve available is 487 MW.'
+    Returns {periods: [[start_ms, end_ms]], day: 'YYYY-MM-DD' or None, required_mw, available_mw}."""
+    text = f"{reference or ''} {reason or ''}"
+    periods = []
+    for g in _PERIOD.findall(text):
+        try:
+            a, b = _hhmm(g[0], *g[1:4]), _hhmm(g[4], *g[5:8])
+        except (ValueError, OverflowError):
+            continue
+        if a < b:
+            periods.append([a, b])
+    day = None
+    m = _ON_DAY.search(reference or "") or _ON_DAY.search(reason or "")
+    try:
+        if m:
+            day = _dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1))).isoformat()
+        elif periods:
+            day = _dt.datetime.fromtimestamp(periods[0][0] / 1000, NEM_TZ).date().isoformat()
+    except ValueError:
+        day = None
+    req = [float(x.replace(",", "")) for x in _REQUIRED.findall(text)]
+    av = [float(x.replace(",", "")) for x in _AVAILABLE.findall(text)]
+    return {"periods": periods, "day": day, "required_mw": max(req) if req else None,
+            "available_mw": min(av) if av else None}
+
+
 def num(s):
     return _num(s)
