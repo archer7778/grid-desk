@@ -231,6 +231,11 @@ def explain(r, info):
             # without rooftop solar in the model, a sunny day looks like missing demand
             parts.append("more than weather explains, probably rooftop solar, which isn't in the model yet "
                          "(its history is still filling in)")
+        elif (r.get("samples") or 0) < 288 * 21:
+            # a young model's errors are mostly its own: don't send readers looking for outages
+            parts.append(f"more than weather and sunshine explain, but the model has only "
+                         f"{(r.get('samples') or 0) / 288:.0f} days of history, so it may simply not know this "
+                         f"time of week well yet")
         else:
             parts.append("more than weather and sunshine explain: a large load, an outage or a holiday")
     if abs(r.get("z_sustained") or 0) >= 3:
