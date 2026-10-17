@@ -44,7 +44,10 @@ class App:
         dbm.open_db(cfg).close()   # make sure the schema exists
         self._pool = queue.LifoQueue()
         self._cache = {}
+        self._klocks = {}
         self._lock = threading.Lock()
+        self.streams = 0
+        self.max_streams = 20
         self._cond = threading.Condition()
         self._sig = None
         self._watcher = None
@@ -70,14 +73,20 @@ class App:
                     c.execute("SELECT MAX(id) FROM fetches").fetchone()[0])
 
     def cached(self, key, ttl, fn, sig=None):
+        """Time-and-signature cache. One build per key at a time: visitors arriving together
+        wait for the same answer instead of each starting the (possibly slow) sum."""
         hit = self._cache.get(key)
-        now = time.time()
-        if hit and now - hit[0] < ttl and hit[1] == sig:
+        if hit and time.time() - hit[0] < ttl and hit[1] == sig:
             return hit[2]
-        val = fn()
         with self._lock:
-            self._cache[key] = (now, sig, val)
-        return val
+            klock = self._klocks.setdefault(key, threading.Lock())
+        with klock:
+            hit = self._cache.get(key)
+            if hit and time.time() - hit[0] < ttl and hit[1] == sig:
+                return hit[2]
+            val = fn()
+            self._cache[key] = (time.time(), sig, val)
+            return val
 
     def latest_t(self, c):
         return c.execute("SELECT MAX(t_ms) FROM regional WHERE demand IS NOT NULL").fetchone()[0]
@@ -265,6 +274,17 @@ def make_handler(app):
             return self._json({"error": "this console is read-only"}, 405)
 
         def _stream(self):
+            with app._lock:
+                if app.streams >= app.max_streams:
+                    return self._json({"error": "too many live connections; the page falls back to polling"}, 503)
+                app.streams += 1
+            try:
+                self._stream_body()
+            finally:
+                with app._lock:
+                    app.streams -= 1
+
+        def _stream_body(self):
             app.start_watch()
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
