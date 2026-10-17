@@ -98,8 +98,9 @@ def test_fetch_pipeline():
         assert conn.execute("SELECT COUNT(*) FROM rooftop").fetchone()[0] > 0
         assert conn.execute("SELECT COUNT(*) FROM notices").fetchone()[0] == 4
         assert conn.execute("SELECT COUNT(*) FROM weather").fetchone()[0] > 100
-        # history: two archived days arrive one per run
+        # history: two archived days arrive one per run; rooftop backfills from the current folder
         assert conn.execute("SELECT COUNT(*) FROM regional WHERE t_ms<?", (now - DAY,)).fetchone()[0] > 0
+        assert conn.execute("SELECT COUNT(DISTINCT t_ms) FROM rooftop").fetchone()[0] >= 2
         # a second run fetches only what's new (nothing), and doesn't refetch files
         before = len(mock.requests)
         fetch.run(cfg, log=msgs.append)
@@ -118,6 +119,29 @@ def test_fetch_pipeline():
         s = alerts.summary(conn, cfg, now)
         assert "NSW: peak" in s["text"] and "Lack of Reserve" in s["text"], s
         print("alerts:", [a["msg"][:60] for a in al])
+    finally:
+        httpd.shutdown()
+        shutil.rmtree(tmp)
+
+
+def test_rooftop_history():
+    tmp = Path(tempfile.mkdtemp())
+    now = now5()
+    synth.mock_now[0] = now
+    mock = synth.MockNEMweb(synth.Grid(seed=7), now, minutes=180, archive_days=21)
+    httpd = mock.serve(8853)
+    try:
+        cfg = cfg_for(tmp, 8853, sources={"history_days": 30})
+        conn = dbm.open_db(cfg)
+        client = fetch.Client(cfg["sources"]["nemweb"], 0)
+        got = fetch.fill_rooftop(conn, cfg, client, print, recent_per_run=100, weeks_per_run=5)
+        span = conn.execute("SELECT (MAX(t_ms)-MIN(t_ms))/86400000.0, COUNT(*) FROM rooftop").fetchone()
+        print(f"rooftop history: {got} files, {span[1]} rows over {span[0]:.1f} days")
+        assert span[0] > 14 and got >= 3
+        before = len(mock.requests)
+        fetch.fill_rooftop(conn, cfg, client, print, recent_per_run=100, weeks_per_run=5)
+        refetched = [p for p in mock.requests[before:] if p.endswith(".zip")]
+        assert not refetched, refetched   # gaps are found from the data: nothing fetched twice
     finally:
         httpd.shutdown()
         shutil.rmtree(tmp)
@@ -327,6 +351,7 @@ def test_unit_list_and_fuzz():
 if __name__ == "__main__":
     test_parse_mms_by_column_name()
     test_fetch_pipeline()
+    test_rooftop_history()
     test_normal_model_learns()
     test_baseline_finds_flat_load()
     test_registry_rules()

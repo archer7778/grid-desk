@@ -178,6 +178,16 @@ class MockNEMweb:
             self._add("/Reports/Current/Market_Notice/", f"NEMITWEB1_MKTNOTICE_{stamp(n['t'], 8)}.R{n['id']}",
                       notice_text(n["id"], n["t"], n.get("lor"), n.get("region", "NSW"), n.get("kind", "Actual"),
                                   n.get("cancel", False)).encode())
+        for k in range(1, archive_days // 7 + 1):   # weekly rooftop archive
+            w0 = (now // 86_400_000) * 86_400_000 - (k + 1) * 7 * 86_400_000
+            rows = []
+            tt = w0
+            while tt < w0 + 7 * 86_400_000:
+                rows += [[nemstr(tt), r, grid.rooftop(r, tt), 1, "MEASUREMENT"] for r in REG]
+                tt += 1_800_000
+            text = mms([("ROOFTOP", "ACTUAL", 2, ["INTERVAL_DATETIME", "REGIONID", "POWER", "QI", "TYPE"], rows)])
+            self._add("/Reports/Archive/ROOFTOP_PV/ACTUAL/", f"PUBLIC_ROOFTOP_PV_ACTUAL_MEASUREMENT_{stamp(w0, 8)}.zip",
+                      zipped("R.CSV", text))
         day = (now // 86_400_000) * 86_400_000
         for k in range(1, archive_days + 1):
             d0 = day - k * 86_400_000

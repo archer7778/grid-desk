@@ -12,7 +12,7 @@ import time
 from . import alerts, ingest
 from . import db as dbm
 from .config import REGIONS, find_config
-from .mms import parse_notice, read_any
+from .mms import nem_time, parse_notice, read_any
 from .nemweb import Client, FetchError, weather
 
 DAY = 86_400_000
@@ -159,6 +159,60 @@ def refresh_duids(conn, cfg, log):
         log(f"Unit list unavailable ({type(e).__name__}: {e}); generation shows as unclassified for now.")
 
 
+def _covered(conn, t0, t1):
+    return conn.execute("SELECT COUNT(*) FROM rooftop WHERE t_ms>=? AND t_ms<?", (t0, t1)).fetchone()[0]
+
+
+def fill_rooftop(conn, cfg, client, log, days=None, recent_per_run=36, weeks_per_run=1):
+    """Rooftop solar history, so the model and the growth estimate can use it as far back as demand
+    goes: the last two weeks from the current folder (one small file per half hour, newest first),
+    older weeks from AEMO's weekly archive. Gaps are found from the data, not from a list of files."""
+    days = cfg["sources"]["history_days"] if days is None else days
+    now = dbm.now_ms()
+    got = 0
+    try:
+        recent = client.listing("rooftop")
+    except FetchError as e:
+        log(f"Rooftop history: {e}")
+        return 0
+    todo = []
+    for stamp, name, href in reversed(recent):
+        t = nem_time(f"{stamp[:4]}/{stamp[4:6]}/{stamp[6:8]} {stamp[8:10]}:{stamp[10:12]}:00")
+        if t and t > now - days * DAY and not _covered(conn, t, t + 1):
+            todo.append((name, href))
+        if len(todo) >= recent_per_run:
+            break
+    for name, href in todo:
+        try:
+            ingest.rooftop(conn, read_any(client.get(href)))
+            got += 1
+        except (FetchError, ValueError) as e:
+            log(f"Rooftop {name}: {e}")
+    conn.commit()
+    oldest_recent = min((nem_time(f"{s[:4]}/{s[4:6]}/{s[6:8]} {s[8:10]}:{s[10:12]}:00") or now for s, _, _ in recent), default=now)
+    try:
+        weekly = client.listing("rooftop_archive")
+    except FetchError:
+        weekly = []
+    n = 0
+    for stamp, name, href in reversed(weekly):
+        t0 = calendar.timegm(time.strptime(stamp, "%Y%m%d")) * 1000
+        if t0 >= oldest_recent or t0 < now - days * DAY - 7 * DAY:
+            continue
+        if _covered(conn, t0, t0 + 7 * DAY) >= 0.9 * 7 * 48 * len(REGIONS):
+            continue
+        try:
+            ingest.rooftop(conn, read_any(client.get(href)))
+            conn.commit()
+            got += 1
+            n += 1
+        except (FetchError, ValueError) as e:
+            log(f"Rooftop archive {name}: {e}")
+        if n >= weeks_per_run:
+            break
+    return got
+
+
 def prune(conn, cfg):
     keep = dbm.now_ms() - cfg["storage"]["unit_detail_hours"] * 3600_000
     conn.execute("DELETE FROM units WHERE t_ms<?", (keep,))
@@ -195,6 +249,7 @@ def run(cfg, log=print, history=True):
         if history:
             try:
                 fill_history(conn, cfg, client, log)
+                fill_rooftop(conn, cfg, client, log)
             except (FetchError, ValueError) as e:
                 log(f"History paused: {e}")
         prune(conn, cfg)
@@ -224,6 +279,7 @@ def main(argv=None):
         client = Client(cfg["sources"]["nemweb"], cfg["sources"]["min_gap_s"])
         fetch_weather(conn, cfg, print, force=True)
         n = fill_history(conn, cfg, client, print, days=a.history, per_run=int(a.history) + 1)
+        fill_rooftop(conn, cfg, client, print, days=a.history, recent_per_run=700, weeks_per_run=60)
         print(f"History: {n} days added.")
         sys.exit(0)
     sys.exit(run(cfg, history=not a.no_history))
