@@ -4,6 +4,7 @@
     python -m griddesk.fetch --history 28 # fill in older days from AEMO's daily archive now
 """
 import argparse
+import calendar
 import fcntl
 import sys
 import time
@@ -67,7 +68,7 @@ def fetch_weather(conn, cfg, log, force=False):
     if not force and dbm.now_ms() - last < 3600_000:
         return 0
     have = conn.execute("SELECT MIN(t_ms) FROM weather").fetchone()[0]
-    days = 2 if have and have < dbm.now_ms() - (cfg["sources"]["history_days"] - 1) * DAY else cfg["sources"]["history_days"] + 1
+    days = 2 if have and have < dbm.now_ms() - 80 * DAY else 92   # older days: fill_history's archive calls
     n = 0
     for reg, info in REGIONS.items():
         try:
@@ -83,10 +84,35 @@ def fetch_weather(conn, cfg, log, force=False):
     return n
 
 
-def fill_history(conn, cfg, client, log, days=None, per_run=1):
-    """Older days of demand and price from AEMO's daily archive (one zip per day, about 20-40 MB).
-    One day per run by default, newest first, so the model has a few weeks to learn from."""
+def weather_for_day(conn, cfg, day_ms, log):
+    """Temperatures for an archived day, from Open-Meteo's archive, a month at a time (so a year of
+    history is about 13 requests per city, not 365)."""
+    have = conn.execute("SELECT COUNT(DISTINCT region) FROM weather WHERE t_ms BETWEEN ? AND ?",
+                        (day_ms, day_ms + DAY)).fetchone()[0]
+    if have >= len(REGIONS):
+        return 0
+    start = time.strftime("%Y-%m-%d", time.gmtime((day_ms - 29 * DAY) / 1000))
+    end = time.strftime("%Y-%m-%d", time.gmtime((day_ms + DAY) / 1000))
+    n = 0
+    for reg, info in REGIONS.items():
+        try:
+            rows = weather(cfg["sources"]["weather_archive"], info["lat"], info["lon"], start=start, end=end)
+        except FetchError as e:
+            log(f"Archived weather for {info['city']}: {e}")
+            continue
+        conn.executemany("INSERT OR IGNORE INTO weather(region,t_ms,temp) VALUES(?,?,?)", [(reg, t, v) for t, v in rows])
+        n += len(rows)
+        time.sleep(0.5)
+    conn.commit()
+    return n
+
+
+def fill_history(conn, cfg, client, log, days=None, per_run=None):
+    """Older days of demand and price from AEMO's daily archive (one zip per day, about 6 MB),
+    newest first, with temperatures for the same days. A day or so per run, so a new install
+    builds up a year in the background (the growth estimate needs it; the model needs four weeks)."""
     days = cfg["sources"]["history_days"] if days is None else days
+    per_run = cfg["sources"]["history_per_run"] if per_run is None else per_run
     if days <= 0:
         return 0
     try:
@@ -100,6 +126,12 @@ def fill_history(conn, cfg, client, log, days=None, per_run=1):
     for stamp, name, href in todo:
         tables = read_any(client.get(href), WANT_DISPATCH)
         n = ingest.regional(conn, tables)
+        try:
+            day = calendar.timegm(time.strptime(stamp, "%Y%m%d")) * 1000
+            if day < dbm.now_ms() - 80 * DAY:
+                weather_for_day(conn, cfg, day, log)
+        except (ValueError, FetchError) as e:
+            log(f"History weather: {e}")
         conn.execute("INSERT OR IGNORE INTO files(name,fetched_ms) VALUES(?,?)", (name, dbm.now_ms()))
         conn.commit()
         log(f"History: {stamp} added ({n} regional intervals).")

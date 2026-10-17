@@ -60,6 +60,7 @@ def test_parse_mms_by_column_name():
     # market notices
     n = mms.parse_notice(synth.notice_text(123456, t, lor=2, region="NSW"))
     assert n["id"] == 123456 and n["lor"] == 2 and n["region"] == "NSW1" and n["kind"] == "actual", n
+    assert n["t_ms"] == t // 1000 * 1000 and "capacity reserve requirement" in n["reason"], n   # day-first dates, full text
     c = mms.parse_notice(synth.notice_text(123457, t, lor=2, region="NSW", cancel=True))
     assert c["kind"] == "cancelled"
     assert mms.parse_notice("garbage") is None

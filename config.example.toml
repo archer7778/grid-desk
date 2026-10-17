@@ -5,7 +5,8 @@ nemweb = "https://nemweb.com.au"                     # AEMO's public file server
 weather = "https://api.open-meteo.com/v1/forecast"   # hourly temperatures (free, no key)
 min_gap_s = 2.0            # seconds between requests to the same server
 max_files_per_run = 24     # 5-minute files per run (catch-up after downtime)
-history_days = 28          # how far back to fill in, one day per run, from AEMO's daily archive
+history_days = 400         # how far back to fill in from AEMO's daily archive (a year for the growth estimate)
+history_per_run = 1        # archived days per run, about 6 MB each
 
 [storage]
 db = "data/griddesk.db"

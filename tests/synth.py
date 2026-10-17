@@ -137,20 +137,23 @@ def rooftop_file(grid, t):
 
 
 def notice_text(nid, t, lor=None, region="NSW", kind="Actual", cancel=False):
+    """A market notice in the layout AEMO uses (checked against a real one by the data spike)."""
+    d = dt.datetime.fromtimestamp(t / 1000, NEM)
     ref = (f"{'Cancellation of ' if cancel else ''}{kind} Lack Of Reserve Level {lor} (LOR{lor}) in the {region} Region"
-           if lor else "Inter-regional transfer limit variation")
-    return (f"-------------------------------------------------------------------\n"
-            f"                       MARKET NOTICE\n"
-            f"-------------------------------------------------------------------\n\n"
-            f"From :              AEMO\nTo   :              NEMITWEB1\nCreation Date :     {nemstr(t)}\n\n"
-            f"Notice ID :               {nid}\nNotice Type ID :          {'RESERVE NOTICE' if lor else 'INTER-REGIONAL TRANSFER'}\n"
-            f"Notice Type Description : MT PASA/STPASA/Reserve Notice\nIssue Date :              {nemstr(t)}\n"
-            f"External Reference :      {ref}\n\n"
-            f"-------------------------------------------------------------------\n\nReason :\n\n"
-            f"AEMO ELECTRICITY MARKET NOTICE\n\n{ref}.\nThe capacity reserve requirement is 650 MW.\n\n"
-            f"Manager NEM Real Time Operations\n"
-            f"-------------------------------------------------------------------\nEND OF REPORT\n"
-            f"-------------------------------------------------------------------\n")
+           if lor else "[EventId:x] NEGRES CONSTRAINT NRM_VIC1_SA1 ceased operating")
+    rule = "-" * 67
+    return (f"{rule}\n                           MARKET NOTICE\n{rule}\n\n"
+            f"From :              AEMO\nTo   :              NEMITWEB1\n"
+            f"Creation Date :     {d:%d/%m/%Y}     {d:%H:%M:%S}\n\n{rule}\n\n"
+            f"Notice ID               :         {nid}\n"
+            f"Notice Type ID          :         {'RESERVE NOTICE' if lor else 'SETTLEMENTS RESIDUE'}\n"
+            f"Notice Type Description :         LRC/LOR1/LOR2/LOR3\n"
+            f"Issue Date              :         {d:%d/%m/%Y}\n"
+            f"External Reference      :         {ref}\n\n{rule}\n\nReason :\n\n"
+            f"AEMO ELECTRICITY MARKET NOTICE\n\n"
+            f"AEMO declares {'a cancellation of ' if cancel else 'a '}{kind} LOR{lor} condition for the {region} region.\n\n\n"
+            f"The capacity reserve requirement is  524 MW.\n\n\nManager NEM Real Time Operations\n\n"
+            f"{rule}\nEND OF REPORT\n{rule}\n")
 
 
 class MockNEMweb:

@@ -23,8 +23,9 @@ def nem_time(s):
     """'2026/10/17 14:00:00' (market time) -> ms since epoch, or None."""
     if not s:
         return None
-    s = str(s).strip().strip('"')
-    for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M", "%Y-%m-%dT%H:%M:%S"):
+    s = " ".join(str(s).strip().strip('"').split())   # market notices pad with runs of spaces
+    for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M", "%Y-%m-%dT%H:%M:%S",
+                "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
         try:
             return int(_dt.datetime.strptime(s, fmt).replace(tzinfo=NEM_TZ).timestamp() * 1000)
         except ValueError:
@@ -124,7 +125,7 @@ def parse_notice(text):
             if in_reason and fields[k]:
                 reason.append(fields[k])
         elif in_reason:
-            if set(line.strip()) <= set("-_="):
+            if line.strip() and set(line.strip()) <= set("-_="):
                 if reason:
                     in_reason = False
                 continue
@@ -136,7 +137,7 @@ def parse_notice(text):
         return None
     ref = fields.get("external reference", "")
     body = " ".join(x.strip() for x in reason if x.strip())[:2000]
-    t = nem_time(fields.get("issue date") or fields.get("creation date"))
+    t = nem_time(fields.get("creation date")) or nem_time(fields.get("issue date"))   # creation has the time of day
     blob = f"{ref} {body}"
     lor = _LOR.search(blob)
     reg = _REGION.search(ref) or _REGION.search(body)

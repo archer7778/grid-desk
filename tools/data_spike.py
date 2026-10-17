@@ -37,7 +37,12 @@ def main():
                 r["note"] = "pattern matched nothing; see listing_*.html"
                 continue
             if feed == "dispatch_archive":
-                r["archive_newest_size_bytes"] = len(c.get(ls[-1][2]))
+                data = c.get(ls[-1][2])
+                r["archive_newest_size_bytes"] = len(data)
+                t = mms.read_any(data, {"DISPATCH,REGIONSUM", "DISPATCH,PRICE"})
+                rs = t.get("DISPATCH,REGIONSUM", [])
+                r["archive_regionsum_rows"] = len(rs)
+                r["archive_first_last"] = [rs[0].get("SETTLEMENTDATE"), rs[-1].get("SETTLEMENTDATE")] if rs else None
                 continue
             data = c.get(ls[-1][2])
             r["size_bytes"] = len(data)
@@ -66,6 +71,13 @@ def main():
         rep["weather"] = {"hours": len(d["hourly"]["time"]), "first": d["hourly"]["time"][0], "sample": d["hourly"]["temperature_2m"][:3]}
     except Exception as e:
         rep["weather"] = {"error": str(e)}
+    try:
+        u = ("https://archive-api.open-meteo.com/v1/archive?latitude=-33.87&longitude=151.21&hourly=temperature_2m"
+             "&start_date=2025-10-01&end_date=2025-10-31&timezone=UTC&timeformat=unixtime")
+        d = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read())
+        rep["weather_archive"] = {"hours": len(d["hourly"]["time"]), "sample": d["hourly"]["temperature_2m"][:3]}
+    except Exception as e:
+        rep["weather_archive"] = {"error": str(e)}
     # unit list
     try:
         from griddesk.duids import URL, build

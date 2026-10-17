@@ -80,12 +80,16 @@ class Client:
         return out
 
 
-def weather(api, lat, lon, past_days=7, timeout=30):
-    """Hourly temperature (°C) from Open-Meteo: [(t_ms, temp)]. Free, no key, CC BY 4.0."""
-    q = urllib.parse.urlencode({"latitude": lat, "longitude": lon, "hourly": "temperature_2m",
-                                "past_days": max(0, min(92, int(past_days))), "forecast_days": 1,
-                                "timezone": "UTC", "timeformat": "unixtime"})
-    req = urllib.request.Request(f"{api}?{q}", headers={"User-Agent": UA})
+def weather(api, lat, lon, past_days=7, timeout=30, start=None, end=None):
+    """Hourly temperature (°C) from Open-Meteo: [(t_ms, temp)]. Free, no key, CC BY 4.0.
+    Recent days come from the forecast endpoint (up to 92 days back); older ones from the
+    archive endpoint with start and end dates (YYYY-MM-DD)."""
+    p = {"latitude": lat, "longitude": lon, "hourly": "temperature_2m", "timezone": "UTC", "timeformat": "unixtime"}
+    if start:
+        p.update(start_date=start, end_date=end or start)
+    else:
+        p.update(past_days=max(0, min(92, int(past_days))), forecast_days=1)
+    req = urllib.request.Request(f"{api}?{urllib.parse.urlencode(p)}", headers={"User-Agent": UA})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             d = json.loads(r.read(5_000_000))

@@ -17,7 +17,9 @@ DEFAULTS = {
         "weather": "https://api.open-meteo.com/v1/forecast",
         "min_gap_s": 2.0,             # between requests to the same host
         "max_files_per_run": 24,      # 2 hours of 5-minute files at most per run
-        "history_days": 28,           # learned-normal needs a few weeks; filled a day at a time
+        "history_days": 400,          # the growth estimate needs a year; filled a day or so per run
+        "history_per_run": 1,         # archived days per run (each about 6 MB)
+        "weather_archive": "https://archive-api.open-meteo.com/v1/archive",
     },
     "storage": {"db": "data/griddesk.db", "unit_detail_hours": 48},
     "alerts": {"price_spike": 1000.0, "departure_sigma": 3.0, "trip_mw": 200.0},

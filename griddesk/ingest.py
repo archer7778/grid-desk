@@ -85,8 +85,9 @@ def rooftop(conn, tables):
     return n
 
 
-FUEL_WORDS = [("battery", "battery"), ("storage", "battery"), ("coal", "coal"), ("gas", "gas"), ("diesel", "gas"),
-              ("hydro", "hydro"), ("water", "hydro"), ("wind", "wind"), ("solar", "solar"), ("photovoltaic", "solar")]
+FUEL_WORDS = [("battery", "battery"), ("coal", "coal"), ("natural gas", "gas"), ("coal seam", "gas"),
+              ("gas", "gas"), ("diesel", "gas"), ("distillate", "gas"), ("kerosene", "gas"), ("hydro", "hydro"),
+              ("water", "hydro"), ("wind", "wind"), ("solar", "solar"), ("photovoltaic", "solar"), ("storage", "battery")]
 
 
 def fuel_of(text):

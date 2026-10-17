@@ -3,7 +3,8 @@
 db = "demo/griddesk.db"
 
 [sources]
-history_days = 28        # one archived day per run until four weeks are stored
+history_days = 400       # a year of history for the growth estimate
+history_per_run = 3      # archived days per run (about 6 MB each)
 max_files_per_run = 72   # runs are ~30 min apart but GitHub can be late: catch up up to 6 hours
 
 [notify]

@@ -72,8 +72,8 @@ def build(data):
                                 return i
                     return None
                 i_duid, i_reg = col["duid"], pick("region")
-                i_fuel = pick("fuel source - primary", "fuel source - descriptor", "fuel")
-                i_tech = pick("technology type - primary", "technology type - descriptor", "technology")
+                # the primary column says "Fossil"; the descriptor says which fossil: read them all
+                i_text = [i for c, i in col.items() if "fuel" in c or "technology" in c]
                 i_st = pick("station name", "station")
                 i_cap = pick("reg cap", "max cap", "capacity")
                 for r in rows[hi + 1:]:
@@ -81,7 +81,7 @@ def build(data):
                     duid = g(i_duid)
                     if not duid or duid in units:
                         continue
-                    text = f"{g(i_fuel)} {g(i_tech)}"
+                    text = " ".join(g(i) for i in i_text)
                     fuel = "battery" if "battery" in text.lower() or "storage" in text.lower() else fuel_of(text)
                     try:
                         cap = float(re.sub(r"[^0-9.]", "", g(i_cap)) or "nan")
